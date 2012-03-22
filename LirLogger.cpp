@@ -11,10 +11,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
-#include <queue>
 #include <PvBuffer.h>
 #include "Spyder3FrameGrabber.h"
+#include "FrameWriteBuffer.h"
 
+#define BUF_SIZE 32
 #define CONFIGFILE "config.xml"
 #define LOGDIR "/deployments"
 
@@ -36,10 +37,10 @@ int main(void){
     signal(SIGTERM, catch_term); 
 
     // Create shared buffer
-    std::queue<PvBuffer*> frameWriteBuffer;    
+    FrameWriteBuffer *buffer = new FrameWriteBuffer(BUF_SIZE);
 
     // Create and start spyder3 frame grabber manager.  Pass it shared buffer.
-
+    
 
     // Create and start frame encoder.  Pass it shared frame buffer
 

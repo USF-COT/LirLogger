@@ -24,5 +24,27 @@ class Spyder3FrameGrabber{
 };
 */
 
+Spyder3FrameGrabber::Spyder3FrameGrabber(std::string path, std::queue<PvBuffer*> *frameQueue){
 
+}
+
+Spyder3FrameGrabber::Spyder3FrameGrabber(std::string path, std::queue<PvBuffer*> *frameQueue, unsigned int numBuffers){
+
+}
+
+bool Spyder3FrameGrabber::start(){
+
+}
+
+bool Spyder3FrameGrabber::stop(){
+
+}
+
+Spyder3FrameGrabber::~Spyder3FrameGrabber(){
+
+}
+
+void Spyder3FrameGrabber::ReQueueBuffer(PvBuffer* buffer){
+
+}
 
