@@ -4,27 +4,44 @@
  * By: Michael Lindemuth
  */
 
-#include <PvConfigurationReader.h>
+#include <PvSystem.h>
+#include <PvInterface.h>
 #include <PvDevice.h>
 #include <PvStream.h>
 #include <PvStreamRaw.h>
 #include <PvBuffer.h>
-#include <string>
-#include <queue>
+
 #include <pthread.h>
+#include <signal.h>
+
+#include "FrameWriteBuffer.h"
+
+struct Sp3GrabThreadParams{
+    volatile sig_atomic_t running;
+    volatile sig_atomic_t stopped;
+    PvDevice device;
+    PvStream stream;
+    PvDeviceInfo *devInfo;
+    pthread_mutex_t streamMutex;
+    FrameWriteBuffer* writeBuffer;
+
+    // Capture stats
+    PvGenInteger *imageCount;
+    PvGenFloat *frameRate;
+    PvGenFloat *bandwidth;
+};
 
 class Spyder3FrameGrabber{
     private:
-        std::string configPath;
-        unsigned int MAX_BUFFERS;
-        PvDevice device;
-        PvStream stream;
+        Sp3GrabThreadParams runParams;
+        pthread_t runner;
 
     public:
-        Spyder3FrameGrabber(std::string path, std::queue<PvBuffer*> *frameQueue);
-        Spyder3FrameGrabber(std::string path, std::queue<PvBuffer*> *frameQueue, unsigned int numBuffers);
-        bool start();
-        bool stop();
+        Spyder3FrameGrabber();
+        bool connect(char* MACAddress);
+        bool startStream(FrameWriteBuffer* frameQueue);
+        bool stopStream();
+        void disconnect();
         ~Spyder3FrameGrabber();
         void ReQueueBuffer(PvBuffer* buffer);
 };

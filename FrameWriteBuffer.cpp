@@ -38,6 +38,10 @@ FrameWriteBuffer::~FrameWriteBuffer(){
     sem_destroy(&signal);
 }
 
+unsigned int FrameWriteBuffer::getLimit(){
+    return limit;
+}
+
 bool FrameWriteBuffer::enqueue(PvBuffer* buf){
     bool retVal = false;
 

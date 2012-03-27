@@ -3,6 +3,9 @@
  * By: Michael Lindemuth
  */
 
+#ifndef FRAME_WRITE_BUFFER_H
+#define FRAME_WRITE_BUFFER_H
+
 #include <semaphore.h>
 #include <pthread.h>
 #include <PvBuffer.h>
@@ -20,7 +23,9 @@ class FrameWriteBuffer{
         FrameWriteBuffer();
         FrameWriteBuffer(unsigned int limit);
         ~FrameWriteBuffer();
-        bool enqueue(PvBuffer* buffer);
+        unsigned int getLimit();
+        bool enqueue(PvBuffer* buf);
         PvBuffer* dequeue();
 };
 
+#endif

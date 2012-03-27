@@ -40,7 +40,7 @@ int main(void){
     FrameWriteBuffer *buffer = new FrameWriteBuffer(BUF_SIZE);
 
     // Create and start spyder3 frame grabber manager.  Pass it shared buffer.
-    
+     
 
     // Create and start frame encoder.  Pass it shared frame buffer
 
