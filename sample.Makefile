@@ -61,13 +61,13 @@ OBJS      += $(SRC_CS:%.c=%.o)
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $@
+	$(LD) $< $(LDFLAGS) -o $@
 
 %.o: %.cpp
-	$(CPP) -c $(CPPFLAGS) -o $@ $<
+	$(CPP) $< -c $(CPPFLAGS) -o $@ 
 
 %.o: %.c
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) $< -c $(CFLAGS) -o $@ 
 
 clean:
 	rm -rf $(OBJS) $(EXEC)
