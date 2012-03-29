@@ -185,6 +185,9 @@ bool AcquireImages(char *MACAddress, char* filename)
     double lBandwidthVal = 0.0;
 
     // Setup FFMPEG Encoder
+    avcodec_register_all();
+
+    CodecID codec_id = CODEC_ID_TIFF;
     AVCodec *codec;
     AVCodecContext *c= NULL;
     AVDictionary *dict= NULL;
@@ -196,7 +199,7 @@ bool AcquireImages(char *MACAddress, char* filename)
     printf("Video encoding\n");
 
     /* find the mpeg1 video encoder */
-    codec = avcodec_find_encoder(CODEC_ID_H264);
+    codec = avcodec_find_encoder(codec_id);
     if (!codec) {
         fprintf(stderr, "codec not found\n");
         exit(1);
@@ -216,8 +219,8 @@ bool AcquireImages(char *MACAddress, char* filename)
     c->max_b_frames=1;
     c->pix_fmt = PIX_FMT_GRAY8;
 
-    //if(codec_id == CODEC_ID_H264)
-    av_opt_set(c->priv_data, "preset", "slow", 0);
+    if(codec_id == CODEC_ID_H264)
+        av_opt_set(c->priv_data, "preset", "slow", 0);
 
     /* open it */
     if (avcodec_open2(c, codec,&dict) < 0) {
@@ -268,7 +271,6 @@ bool AcquireImages(char *MACAddress, char* filename)
                     lWidth = lBuffer->GetImage()->GetWidth();
                     lHeight = lBuffer->GetImage()->GetHeight();
                 }
-
                 printf( "%c Timestamp: %016llX BlockID: %04X W: %i H: %i %.01f FPS %.01f Mb/s\r", 
                         lDoodle[ lDoodleIndex ],
                         lBuffer->GetTimestamp(),
@@ -276,7 +278,7 @@ bool AcquireImages(char *MACAddress, char* filename)
                         lWidth,
                         lHeight,
                         lFrameRateVal,
-                        lBandwidthVal / 1000000.0 ); 
+                        lBandwidthVal / 1000000.0 );
             }
             // We have an image - do some processing (...)
             // VERY IMPORTANT:
