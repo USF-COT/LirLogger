@@ -22,6 +22,8 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#define MAXFILEPATH 1024
+
 int _kbhit(void)
 {
     struct termios oldt, newt;
@@ -61,6 +63,19 @@ int _kbhit(void)
 #include <PvBuffer.h>
 #include <PvStream.h>
 #include <PvStreamRaw.h>
+#include <PvBufferWriter.h>
+#include <PvPixelType.h>
+#include <time.h>
+
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
+
+#define CHUNK 37888000
 
 extern "C"
 {
@@ -183,68 +198,12 @@ bool AcquireImages(char *MACAddress, char* filename)
     PvInt64 lImageCountVal = 0;
     double lFrameRateVal = 0.0;
     double lBandwidthVal = 0.0;
-
-    // Setup FFMPEG Encoder
-    avcodec_register_all();
-
-    CodecID codec_id = CODEC_ID_TIFF;
-    AVCodec *codec;
-    AVCodecContext *c= NULL;
-    AVDictionary *dict= NULL;
-    int i, out_size, size, x, y, outbuf_size;
-    FILE *f;
-    AVFrame *picture;
-    uint8_t *outbuf;
-
-    printf("Video encoding\n");
-
-    /* find the mpeg1 video encoder */
-    codec = avcodec_find_encoder(codec_id);
-    if (!codec) {
-        fprintf(stderr, "codec not found\n");
-        exit(1);
-    }
-
-    c = avcodec_alloc_context3(codec);
-    picture= avcodec_alloc_frame();
-
-    /* put sample parameters */
-    c->bit_rate = 400000;
-    /* resolution must be a multiple of two */
-    c->width = 4096; //TODO set these programmatically
-    c->height = 4096; //TODO ^
-    /* frames per second */
-    c->time_base= (AVRational){1,4};
-    c->gop_size = 10; /* emit one intra frame every ten frames */
-    c->max_b_frames=1;
-    c->pix_fmt = PIX_FMT_GRAY8;
-
-    if(codec_id == CODEC_ID_H264)
-        av_opt_set(c->priv_data, "preset", "slow", 0);
-
-    /* open it */
-    if (avcodec_open2(c, codec,&dict) < 0) {
-        fprintf(stderr, "could not open codec\n");
-        exit(1);
-    }
-
-    f = fopen(filename, "wb");
-    if (!f) {
-        fprintf(stderr, "could not open %s\n", filename);
-        exit(1);
-    }
-
-    /* alloc image and output buffer */
-    outbuf_size = 10485760;
-    outbuf = (uint8_t*)malloc(outbuf_size);
-
-    /* the image can be allocated by any means and av_image_alloc() is
-     * just the most convenient way if av_malloc() is to be used */
-    av_image_alloc(picture->data, picture->linesize,
-                   c->width, c->height, c->pix_fmt, 1);
+    PvInt64 lPipelineBlocksDropped = 0;
 
     // Acquire images until the user instructs us to stop
     printf( "\n<press the enter key to stop streaming>\n" );
+    PvBufferWriter writer;
+    char filePath[MAXFILEPATH];
     while ( !_kbhit() )
     {
         // Retrieve next buffer		
@@ -259,25 +218,37 @@ bool AcquireImages(char *MACAddress, char* filename)
                 lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
                 lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
                 lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
+                lStreamParams->GetIntegerValue("PipelineBlocksDropped", lPipelineBlocksDropped);
 
                 // If the buffer contains an image, display width and height
                 PvUInt32 lWidth = 0, lHeight = 0;
-                if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
-                {
-                    // Get image specific buffer interface
-                    PvImage *lImage = lBuffer->GetImage();
+                /*
+                   if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+                   {
+                // Get image specific buffer interface
+                PvImage *lImage = lBuffer->GetImage();
 
-                    // Read width, height
-                    lWidth = lBuffer->GetImage()->GetWidth();
-                    lHeight = lBuffer->GetImage()->GetHeight();
+                // Read width, height
+                lWidth = lBuffer->GetImage()->GetWidth();
+                lHeight = lBuffer->GetImage()->GetHeight();
                 }
-                printf( "%c Timestamp: %016llX BlockID: %04X W: %i H: %i %.01f FPS %.01f Mb/s\r", 
+                 */
+                 
+                filePath[0] = '\0';
+                sprintf(filePath,"%s/%04X.bin",filename,lBuffer->GetBlockID());
+                PvString path(filePath);
+                if(writer.Store(lBuffer, path, PvBufferFormatRaw).IsOK())
+                    printf("\nSuccessfully stored image @ %s.\n",filePath);
+                else
+                    printf("\nError storing image @ %s.\n",filePath);
+                if(lPipelineBlocksDropped > 0)
+                    printf("%d DROPS\n",lPipelineBlocksDropped);
+                printf( "%c Timestamp: %016llX BlockID: %04X %.01f FPS %d DROP %.01f Mb/s\r",
                         lDoodle[ lDoodleIndex ],
                         lBuffer->GetTimestamp(),
                         lBuffer->GetBlockID(),
-                        lWidth,
-                        lHeight,
                         lFrameRateVal,
+                        lPipelineBlocksDropped,
                         lBandwidthVal / 1000000.0 );
             }
             // We have an image - do some processing (...)
