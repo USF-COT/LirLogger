@@ -15,6 +15,8 @@
 #endif // WIN32
 
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
 
 #ifdef _UNIX_
 
@@ -65,8 +67,8 @@ int _kbhit(void)
 #include <PvStreamRaw.h>
 #include <PvBufferWriter.h>
 #include <PvPixelType.h>
-#include <time.h>
 
+/*
 #if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
 #  include <fcntl.h>
 #  include <io.h>
@@ -84,6 +86,12 @@ extern "C"
 #include "libavcodec/avcodec.h"
 #include "libavutil/mathematics.h"
 #include "libavutil/samplefmt.h"
+}
+ */
+
+extern "C"
+{
+#include <tiffio.h>
 }
 
 //
@@ -202,8 +210,9 @@ bool AcquireImages(char *MACAddress, char* filename)
 
     // Acquire images until the user instructs us to stop
     printf( "\n<press the enter key to stop streaming>\n" );
-    PvBufferWriter writer;
+    //PvBufferWriter writer;
     char filePath[MAXFILEPATH];
+    PvUInt32 lWidth = 0, lHeight = 0;
     while ( !_kbhit() )
     {
         // Retrieve next buffer		
@@ -221,28 +230,43 @@ bool AcquireImages(char *MACAddress, char* filename)
                 lStreamParams->GetIntegerValue("PipelineBlocksDropped", lPipelineBlocksDropped);
 
                 // If the buffer contains an image, display width and height
-                PvUInt32 lWidth = 0, lHeight = 0;
-                /*
-                   if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
-                   {
-                // Get image specific buffer interface
-                PvImage *lImage = lBuffer->GetImage();
+                if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+                {
+                    // Get image specific buffer interface
+                    PvImage *lImage = lBuffer->GetImage();
 
-                // Read width, height
-                lWidth = lBuffer->GetImage()->GetWidth();
-                lHeight = lBuffer->GetImage()->GetHeight();
+                    // Read width, height
+                    lWidth = lBuffer->GetImage()->GetWidth();
+                    lHeight = lBuffer->GetImage()->GetHeight();
                 }
-                 */
-                 
-                filePath[0] = '\0';
-                sprintf(filePath,"%s/%04X.bin",filename,lBuffer->GetBlockID());
-                PvString path(filePath);
-                if(writer.Store(lBuffer, path, PvBufferFormatRaw).IsOK())
+
+                if(lWidth > 0){
+                    filePath[0] = '\0';
+                    sprintf(filePath,"%s/%04X.tif",filename,lBuffer->GetBlockID());
+                    TIFF *out = TIFFOpen(filePath,"w");
+                    TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
+                    TIFFSetField(out, TIFFTAG_IMAGELENGTH, lHeight);
+                    TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 1);
+                    TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
+                    TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+                    TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+                    TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+                    TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+
+                    TIFFWriteEncodedStrip(out,0,lBuffer->GetDataPointer(),lWidth*lHeight);
+                    TIFFClose(out);
                     printf("\nSuccessfully stored image @ %s.\n",filePath);
-                else
-                    printf("\nError storing image @ %s.\n",filePath);
-                if(lPipelineBlocksDropped > 0)
-                    printf("%d DROPS\n",lPipelineBlocksDropped);
+                }
+                /*
+                   PvString path(filePath);
+                   if(writer.Store(lBuffer, path, PvBufferFormatRaw).IsOK())
+                   printf("\nSuccessfully stored image @ %s.\n",filePath);
+                   else
+                   printf("\nError storing image @ %s.\n",filePath);
+                   if(lPipelineBlocksDropped > 0)
+                   printf("%d DROPS\n",lPipelineBlocksDropped);
+                 */
+
                 printf( "%c Timestamp: %016llX BlockID: %04X %.01f FPS %d DROP %.01f Mb/s\r",
                         lDoodle[ lDoodleIndex ],
                         lBuffer->GetTimestamp(),
