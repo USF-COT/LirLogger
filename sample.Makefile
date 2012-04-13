@@ -61,7 +61,7 @@ OBJS      += $(SRC_CS:%.c=%.o)
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
-	$(LD) $< $(LDFLAGS) -o $@
+	$(LD) $(OBJS) $(LDFLAGS) -o $@
 
 %.o: %.cpp
 	$(CPP) $< -c $(CPPFLAGS) -o $@ 

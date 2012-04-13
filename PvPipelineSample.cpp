@@ -15,8 +15,6 @@
 #endif // WIN32
 
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 
 #ifdef _UNIX_
 
@@ -24,60 +22,44 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#define MAXFILEPATH 1024
-
 int _kbhit(void)
 {
-    struct termios oldt, newt;
-    int ch;
-    int oldf;
+  struct termios oldt, newt;
+  int ch;
+  int oldf;
 
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+  tcgetattr(STDIN_FILENO, &oldt);
+  newt = oldt;
+  newt.c_lflag &= ~(ICANON | ECHO);
+  tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+  oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+  fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
 
-    ch = getchar();
+  ch = getchar();
 
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    fcntl(STDIN_FILENO, F_SETFL, oldf);
+  tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+  fcntl(STDIN_FILENO, F_SETFL, oldf);
 
-    if(ch != EOF)
-    {
-        ungetc(ch, stdin);
-        return 1;
-    }
+  if(ch != EOF)
+  {
+    ungetc(ch, stdin);
+    return 1;
+  }
 
-    return 0;
+  return 0;
 }
 
 #define _getch getchar
 
 #endif // _UNIX_
 
-#include <PvSystem.h>
-#include <PvInterface.h>
+
 #include <PvDeviceFinderWnd.h>
 #include <PvDevice.h>
 #include <PvPipeline.h>
 #include <PvBuffer.h>
 #include <PvStream.h>
 #include <PvStreamRaw.h>
-#include <PvBufferWriter.h>
-#include <PvPixelType.h>
-
-/*
-#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
-#  include <fcntl.h>
-#  include <io.h>
-#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
-#else
-#  define SET_BINARY_MODE(file)
-#endif
-
-#define CHUNK 37888000
 
 extern "C"
 {
@@ -87,54 +69,21 @@ extern "C"
 #include "libavutil/mathematics.h"
 #include "libavutil/samplefmt.h"
 }
- */
-
-extern "C"
-{
-#include <tiffio.h>
-}
 
 //
 // Shows how to use a PvPipeline object to acquire images from a device
 //
 
-bool AcquireImages(char *MACAddress, char* filename)
+bool AcquireImages()
 {
-    PvResult result;
+    // Create a GEV Device finder dialog
+    PvDeviceFinderWnd lDeviceFinderWnd;
 
-    // Initialize Camera System
-    PvSystem system;
-    system.SetDetectionTimeout(2000);
-    result = system.Find();    
-    if(!result.IsOK()){
-        printf("PvSystem::Find Error: %s", result.GetCodeString().GetAscii());
-        return false;
-    }
+    // Prompt the user to select a GEV Device
+    lDeviceFinderWnd.ShowModal();
 
-    PvDeviceInfo* lDeviceInfo = NULL;
-    PvDeviceInfo* tempInfo;
-
-    // Get the number of GEV Interfaces that were found using GetInterfaceCount.
-    PvUInt32 lInterfaceCount = system.GetInterfaceCount();
-
-    // For each interface, check MAC Address against passed address
-    for( PvUInt32 x = 0; x < lInterfaceCount; x++ )
-    {
-        // get pointer to each of interface
-        PvInterface * lInterface = system.GetInterface( x );
-
-        // Get the number of GEV devices that were found using GetDeviceCount.
-        PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
-
-        for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
-        {
-            tempInfo = lInterface->GetDeviceInfo( y );
-            if(strlen(MACAddress) == strlen(tempInfo->GetMACAddress().GetAscii()) && strncmp(MACAddress,tempInfo->GetMACAddress().GetAscii(),strlen(MACAddress)) == 0){
-                lDeviceInfo = tempInfo;
-                break;
-            }
-        }
-    }
+    // Get the connectivity information for the selected GEV Device
+    PvDeviceInfo* lDeviceInfo = lDeviceFinderWnd.GetSelected();
 
     // If no device is selected, abort
     if( lDeviceInfo == NULL )
@@ -169,10 +118,10 @@ bool AcquireImages(char *MACAddress, char* filename)
 
     // Create the PvPipeline object
     PvPipeline lPipeline( &lStream );
-
+    
     // Reading payload size from device
     PvInt64 lSize = 0;
-    lDeviceParams->GetIntegerValue( "PayloadSize", lSize );
+	lDeviceParams->GetIntegerValue( "PayloadSize", lSize );
 
     // Set the Buffer size and the Buffer count
     lPipeline.SetBufferSize( static_cast<PvUInt32>( lSize ) );
@@ -191,69 +140,69 @@ bool AcquireImages(char *MACAddress, char* filename)
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
+	lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
 
     printf( "Resetting timestamp counter...\n" );
-    lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
+	lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
 
     // The pipeline is already "armed", we just have to tell the device
     // to start sending us images
     printf( "Sending StartAcquisition command to device\n" );
-    lDeviceParams->ExecuteCommand( "AcquisitionStart" );
+	lDeviceParams->ExecuteCommand( "AcquisitionStart" );
 
     char lDoodle[] = "|\\-|-/";
     int lDoodleIndex = 0;
     PvInt64 lImageCountVal = 0;
     double lFrameRateVal = 0.0;
     double lBandwidthVal = 0.0;
-    PvInt64 lPipelineBlocksDropped = 0;
+
+    // Setup FFMPEG Encoder
+    AVCodec *codec;
+    codec = avcodec_find_encoder(CODEC_ID_H264);
+    if (!codec) {
+        fprintf(stderr, "codec not found\n");
+        exit(1);
+    }
 
     // Acquire images until the user instructs us to stop
     printf( "\n<press the enter key to stop streaming>\n" );
-    //PvBufferWriter writer;
-    char filePath[MAXFILEPATH];
-    PvUInt32 lWidth = 4096, lHeight = 9250;
     while ( !_kbhit() )
     {
         // Retrieve next buffer		
         PvBuffer *lBuffer = NULL;
         PvResult  lOperationResult;
         PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
-
+        
         if ( lResult.IsOK() )
         {
             if ( lOperationResult.IsOK() )
             {
-                lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
-                lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
-                lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
-                lStreamParams->GetIntegerValue("PipelineBlocksDropped", lPipelineBlocksDropped);
+				lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
+				lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
+				lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
+            
+				// If the buffer contains an image, display width and height
+				PvUInt32 lWidth = 0, lHeight = 0;
+				if ( lBuffer->GetPayloadType() == PvPayloadTypeImage )
+				{
+					// Get image specific buffer interface
+					PvImage *lImage = lBuffer->GetImage();
 
-                filePath[0] = '\0';
-                sprintf(filePath,"%s/%04X.tif",filename,lBuffer->GetBlockID());
-                TIFF *out = TIFFOpen(filePath,"w");
-                TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
-                TIFFSetField(out, TIFFTAG_IMAGELENGTH, lHeight);
-                TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 1);
-                TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
-                TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-                TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-                TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
-                TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+					// Read width, height
+					lWidth = lBuffer->GetImage()->GetWidth();
+					lHeight = lBuffer->GetImage()->GetHeight();
+				}
 
-                TIFFWriteEncodedStrip(out,0,lBuffer->GetDataPointer(),lWidth*lHeight);
-                TIFFClose(out);
-
-                printf( "%c Timestamp: %016llX BlockID: %04X %.01f FPS %d DROP %.01f Mb/s\r",
-                        lDoodle[ lDoodleIndex ],
-                        lBuffer->GetTimestamp(),
-                        lBuffer->GetBlockID(),
-                        lFrameRateVal,
-                        lPipelineBlocksDropped,
-                        lBandwidthVal / 1000000.0 );
+				printf( "%c Timestamp: %016llX BlockID: %04X W: %i H: %i %.01f FPS %.01f Mb/s\r", 
+                    lDoodle[ lDoodleIndex ],
+                    lBuffer->GetTimestamp(),
+                    lBuffer->GetBlockID(),
+					lWidth,
+					lHeight,
+                    lFrameRateVal,
+                    lBandwidthVal / 1000000.0 ); 
             }
-            // We have an image - do some processing (...)
-            // VERY IMPORTANT:
+            // We have an image - do some processing (...) and VERY IMPORTANT,
             // release the buffer back to the pipeline
             lPipeline.ReleaseBuffer( lBuffer );
         }
@@ -271,11 +220,11 @@ bool AcquireImages(char *MACAddress, char* filename)
 
     // Tell the device to stop sending images
     printf( "Sending AcquisitionStop command to the device\n" );
-    lDeviceParams->ExecuteCommand( "AcquisitionStop" );
+	lDeviceParams->ExecuteCommand( "AcquisitionStop" );
 
     // If present reset TLParamsLocked to 0. Must be done AFTER the 
     // streaming has been stopped
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
+	lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
 
     // We stop the pipeline - letting the object lapse out of 
     // scope would have had the destructor do the same, but we do it anyway
@@ -298,20 +247,11 @@ bool AcquireImages(char *MACAddress, char* filename)
 // Main function
 //
 
-int main(int argc, char** argv)
+int main()
 {
-    if(argc != 3){
-        fprintf(stderr,"Incorrect number of arguments passed.\nEXAMPLE: ./LirTest \"<Camera MAC Address>\" \"<encoder output file path>\"\n");
-        exit(EXIT_FAILURE);
-    }
-
-    char* MACAddress = argv[1];
-    char* filename = argv[2];
-
     // PvPipeline used to acquire images from a device
-    printf("Opening camera connection @ %s and outputting encoded data to %s\n",MACAddress,filename);
     printf( "1. PvPipeline sample - image acquisition from a device\n\n" );
-    AcquireImages(MACAddress, filename);
+    AcquireImages();
 
     printf( "\n<press the enter key to exit>\n" );
     while ( !_kbhit() );
