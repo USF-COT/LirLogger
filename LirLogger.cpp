@@ -95,7 +95,7 @@ int main(){
     syslog(LOG_DAEMON|LOG_INFO,"Creating command instance.");
     LirCommand* com = LirCommand::Instance();
     syslog(LOG_DAEMON|LOG_INFO,"Loading configuration.");
-    com->loadConfig("config.xml");
+    com->loadConfig("/etc/LirLogger/config.xml");
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
 
     // Setup SIGTERM Handler

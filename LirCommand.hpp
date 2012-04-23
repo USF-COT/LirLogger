@@ -35,8 +35,8 @@ class LirCommand{
         static LirCommand* Instance();
         ~LirCommand();
         bool loadConfig(char* configPath);
-        void setCamera(Spyder3Camera* camera);
-        void addEthSensor(EthSensor* sensor);
+        bool startLogger();
+        bool stopLogger();
 };
 
 
