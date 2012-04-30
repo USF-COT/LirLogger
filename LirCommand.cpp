@@ -72,7 +72,7 @@ LirCommand* LirCommand::Instance()
 bool LirCommand::startLogger(){
     if(!this->running){
         pthread_mutex_lock(&this->commandMutex);
-        if(this->camera) this->camera->Connect();
+        if(this->camera) this->camera->start();
         this->running = true;
         pthread_mutex_unlock(&this->commandMutex);
     }
@@ -81,7 +81,7 @@ bool LirCommand::startLogger(){
 bool LirCommand::stopLogger(){
     if(running){
         pthread_mutex_lock(&this->commandMutex);
-        if(this->camera) this->camera->Disconnect();
+        if(this->camera) this->camera->stop();
         this->running = true;
         pthread_mutex_unlock(&this->commandMutex);
     }

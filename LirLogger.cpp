@@ -98,6 +98,10 @@ int main(){
     com->loadConfig("/etc/LirLogger/config.xml");
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
 
+    com->startLogger();
+    sleep(1);
+    com->stopLogger();
+
     // Setup SIGTERM Handler
     signal(SIGTERM,catch_term); 
 

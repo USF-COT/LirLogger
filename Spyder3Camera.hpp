@@ -2,23 +2,31 @@
 #ifndef SPY3CAM_HPP
 #define SPY3CAM_HPP
 
-#include <cstddef> // NULL
-#include <iomanip>
-#include <iostream>
-#include <fstream>
-#include <string>
+#include <vector>
+#include <boost/thread.hpp>
+#include "ISpyder3Listener.hpp"
 
-class Spyder3Camera{    
-    std::string MAC;
+class Spyder3Camera{
+
+private:
+    char* MAC;
     unsigned int pipelineBufferMax;
+    std::vector<ISpyder3Listener *> listeners;
+    
+    boost::thread* camThread;
+    boost::mutex runMutex;
+    bool isRunning;
 
 public:
-    Spyder3Camera() : MAC("00-00-00-00-00-00"), pipelineBufferMax(32){}
-    Spyder3Camera(const std::string _MAC) : MAC(_MAC), pipelineBufferMax(32){}
-    Spyder3Camera(const std::string _MAC, unsigned int _pipelineBufferMax) : MAC(_MAC), pipelineBufferMax(_pipelineBufferMax){}
+    Spyder3Camera(const char* _MAC, unsigned int _pipelineBufferMax=32);
     ~Spyder3Camera();
-    bool Connect();
-    bool Disconnect();
+    
+    void addListener(ISpyder3Listener *l);
+    bool start();
+    bool stop();
+
+    void operator() ();
+    
 };
 
 #endif

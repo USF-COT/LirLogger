@@ -13,7 +13,7 @@ endif
 
 CC=gcc
 CPP=g++
-LD=$(CC)
+LD=$(CPP)
 
 PUREGEV_ROOT ?= ../../..
 
