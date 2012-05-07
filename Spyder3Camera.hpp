@@ -15,6 +15,7 @@ private:
     
     boost::thread* camThread;
     boost::mutex runMutex;
+    boost::mutex listenersMutex;
     bool isRunning;
 
 public:

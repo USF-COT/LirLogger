@@ -2,6 +2,7 @@ SRC_CPPS = \
            LirLogger.cpp \
            LirCommand.cpp \
            Spyder3Camera.cpp \
+           Spyder3TiffWriter.cpp \
 
 EXEC     = LirLogger
 
@@ -10,6 +11,6 @@ EXEC     = LirLogger
 #CPPFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))
 #LDFLAGS+=$(shell pkg-config --libs $(FFMPEG_LIBS))
 LDFLAGS+=-ltiff -lxerces-c -lboost_thread
-CPPFLAGS+=-D__STDC_CONSTANT_MACROS -I/usr/src/boost_1_49_0
+CPPFLAGS+=-D__STDC_CONSTANT_MACROS 
 
 include sample.Makefile

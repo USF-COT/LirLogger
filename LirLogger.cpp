@@ -99,7 +99,7 @@ int main(){
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
 
     com->startLogger();
-    sleep(1);
+    sleep(60);
     com->stopLogger();
 
     // Setup SIGTERM Handler
@@ -131,17 +131,17 @@ int main(){
 
     for(i=0; i < NUM_THREADS; i++)
         thread_bin_available[i] = AVAILABLE;
-
+/*
     while(daemonrunning){
         syslog(LOG_DAEMON|LOG_INFO,"Listening for connection on port %i", port);
-        /* Wait for TCP/IP Connection */
+        // Wait for TCP/IP Connection
         conn_s = accept(list_s, NULL, NULL);
         if ( conn_s < 0 ) {
             syslog(LOG_DAEMON|LOG_ERR,"Unable to call accept() on socket.");
             break;
         }
 
-        /* Spawn a POSIX Server Thread to Handle Connected Socket */
+        // Spawn a POSIX Server Thread to Handle Connected Socket
         for(i=0; i < NUM_THREADS; i++){
             if(thread_bin_available[i]){
                 thread_bin_available[i] = UNAVAILABLE;
@@ -160,6 +160,7 @@ int main(){
         }
 
     }
+*/
     syslog(LOG_DAEMON|LOG_INFO,"Daemon Exited Successfully.");
     closelog();
     exit(EXIT_SUCCESS);

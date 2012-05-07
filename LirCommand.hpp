@@ -14,7 +14,7 @@
 
 #include "EthSensor.hpp"
 #include "Spyder3Camera.hpp"
-//#include "Spyder3TiffWriter.hpp"
+#include "Spyder3TiffWriter.hpp"
 //#include "Spyder3FrameTracker.hpp"
 
 // Singleton code from: http://www.yolinux.com/TUTORIALS/C++Singleton.html
@@ -26,7 +26,7 @@ class LirCommand{
 
     // Camera and Logger Classes
     Spyder3Camera* camera;
-//    Spyder3TiffWriter* writer;
+    Spyder3TiffWriter* writer;
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes
@@ -37,6 +37,7 @@ class LirCommand{
         LirCommand(LirCommand const&){};
         LirCommand& operator=(LirCommand const*){};
         static LirCommand* m_pInstance;
+        void ConnectListeners();
 
     public:
         static LirCommand* Instance();

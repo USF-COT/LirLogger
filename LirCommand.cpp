@@ -87,6 +87,11 @@ bool LirCommand::stopLogger(){
     }
 }
 
+void LirCommand::ConnectListeners(){
+    this->writer = new Spyder3TiffWriter(this->outputFolder);
+    this->camera->addListener(this->writer);
+}
+
 bool LirCommand::loadConfig(char* configPath){
     bool parsed = true;
 
@@ -179,6 +184,8 @@ bool LirCommand::loadConfig(char* configPath){
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "Cannot reconfigure a running command instance.");
     }
+
+    this->ConnectListeners();
 
     return parsed;
 }
