@@ -17,7 +17,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <string.h>
-#include <pthread.h>
+#include <boost/thread/thread.hpp>
 
 #include "LirCommand.hpp"
 #include "Spyder3Camera.hpp"
@@ -27,7 +27,6 @@
 #define IMGBUFSIZE 32
 
 volatile sig_atomic_t daemonrunning=1;
-volatile sig_atomic_t numClients=0;
 
 int list_s; // Listening socket
 
@@ -37,50 +36,36 @@ void catch_term(int sig){
     return;
 }
 
-typedef enum {UNAVAILABLE, AVAILABLE}AVAILABILITY;
-pthread_t thread_bin[NUM_THREADS];
-AVAILABILITY thread_bin_available[NUM_THREADS];
-
-typedef struct THREADINFO{
-    unsigned short thread_bin_index;
-    int socket_connection;
-} threadInfo;
-
-void* handleConnection(void* info){
-    int* connection = &((threadInfo*)info)->socket_connection;
+void* handleConnection(int connection){
     char buffer[MAXBUF+1];
     int numBytesReceived, offset;
 
-    numBytesReceived = recv(*connection,buffer,MAXBUF,0);
+    numBytesReceived = recv(connection,buffer,MAXBUF,0);
     while(numBytesReceived > 0 && daemonrunning){
         // Terminate buffer
         buffer[numBytesReceived] = '\0';
         offset = 0;
         do{
-            //offset += parseCommand(*connection,buffer,offset,MAXBUF);
+            //offset += parseCommand(connection,buffer,offset,MAXBUF);
         }while(offset <= MAXBUF && buffer[offset] != '\0' && daemonrunning);
-        numBytesReceived = recv(*connection,buffer,MAXBUF,0);
+        numBytesReceived = recv(connection,buffer,MAXBUF,0);
     }
 
-    if ( close(*connection) < 0 ) {
-        syslog(LOG_DAEMON|LOG_ERR,"(Thread %i)Error calling close() on connection socket. Daemon Terminated.",((threadInfo*)info)->thread_bin_index);
+    if ( close(connection) < 0 ) {
+        syslog(LOG_DAEMON|LOG_ERR,"(Connection %d)Error calling close() on connection socket. Daemon Terminated.",connection);
         exit(EXIT_FAILURE);
     }
 
-    syslog(LOG_DAEMON|LOG_INFO,"(Thread %i)Connected Socket Closed.",((threadInfo*)info)->thread_bin_index);
-    numClients--;
-    thread_bin_available[((threadInfo*)info)->thread_bin_index] = AVAILABLE;
-    free(info);
-    pthread_exit(NULL);
+    syslog(LOG_DAEMON|LOG_INFO,"(Connection %d)Connected Socket Closed.",connection);
 }
 
 int main(){
     int conn_s;
     short int port = 8045;
     struct sockaddr_in servaddr;
-    int i, availableThreadID;
-    uint8_t numClients = 0;
-    threadInfo* info;
+    int i;
+    unsigned int numClients = 0;
+    boost::thread_group *tgroup = new boost::thread_group();
 
     printf("Starting Lir Logger.  All subsequent messages will be appended to system log.\n");
 
@@ -99,8 +84,6 @@ int main(){
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
 
     com->startLogger();
-    sleep(60);
-    com->stopLogger();
 
     // Setup SIGTERM Handler
     signal(SIGTERM,catch_term); 
@@ -129,9 +112,6 @@ int main(){
         exit(EXIT_FAILURE);
     }
 
-    for(i=0; i < NUM_THREADS; i++)
-        thread_bin_available[i] = AVAILABLE;
-/*
     while(daemonrunning){
         syslog(LOG_DAEMON|LOG_INFO,"Listening for connection on port %i", port);
         // Wait for TCP/IP Connection
@@ -141,26 +121,18 @@ int main(){
             break;
         }
 
-        // Spawn a POSIX Server Thread to Handle Connected Socket
-        for(i=0; i < NUM_THREADS; i++){
-            if(thread_bin_available[i]){
-                thread_bin_available[i] = UNAVAILABLE;
-                syslog(LOG_DAEMON|LOG_INFO,"Handling new connection on port %i",port);
-                numClients++;
-                info = (threadInfo*)malloc(sizeof(threadInfo));
-                info->socket_connection = conn_s;
-                info->thread_bin_index = i;
-                pthread_create(&thread_bin[i],NULL,handleConnection, (void*)info);
-                break;
-            }
-        }
+        // Spawn a Server Thread to Handle Connected Socket
+        syslog(LOG_DAEMON|LOG_INFO,"Handling new connection on port %i",port);
+        tgroup->add_thread(new boost::thread(handleConnection,conn_s));
+        //pthread_create(&thread_bin[i],NULL,handleConnection, (void*)info);
 
         if(i > NUM_THREADS){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to create thread to handle connection.  Continuing...");
         }
 
     }
-*/
+    tgroup->join_all();
+    com->stopLogger();
     syslog(LOG_DAEMON|LOG_INFO,"Daemon Exited Successfully.");
     closelog();
     exit(EXIT_SUCCESS);
