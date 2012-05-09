@@ -11,7 +11,7 @@ class Spyder3Camera{
 private:
     char* MAC;
     unsigned int pipelineBufferMax;
-    std::vector<ISpyder3Listener *> listeners;
+    std::vector<ISpyder3Listener*> listeners;
     
     boost::thread* camThread;
     boost::mutex runMutex;

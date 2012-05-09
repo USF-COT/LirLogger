@@ -77,6 +77,9 @@ bool LirCommand::startLogger(){
     if(!this->running){
         commandMutex.lock();
         if(this->camera) this->camera->start();
+        for(unsigned int i=0; i < sensors.size(); ++i){
+            sensors[i]->Connect();
+        }
         this->running = true;
         commandMutex.unlock();
     }
@@ -90,6 +93,9 @@ bool LirCommand::stopLogger(){
     if(running){
         commandMutex.lock();
         if(this->camera) this->camera->stop();
+        for(unsigned int i=0; i < sensors.size(); ++i){
+            sensors[i]->Disconnect();
+        }
         this->running = false;
         commandMutex.unlock();
     }
@@ -204,6 +210,11 @@ bool LirCommand::loadConfig(char* configPath){
     }
 
     this->ConnectListeners();
+
+    static const string arr[] = {"blah","foo"};
+    vector<string> fields(arr,arr+sizeof(arr)/sizeof(arr[0]));
+    EthSensor* sensor = new EthSensor("131.247.138.19",4000,"AMLCTD","\r\n"," ",fields,"","");
+    sensors.push_back(sensor);
 
     return parsed;
 }
