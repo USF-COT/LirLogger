@@ -10,7 +10,11 @@
 #include <sys/syslog.h>
 #include <iostream>
 #include <vector>
-#include <pthread.h>
+#include <map>
+#include <string.h>
+
+#include <boost/function.hpp>
+#include <boost/thread.hpp>
 
 #include "EthSensor.hpp"
 #include "Spyder3Camera.hpp"
@@ -20,7 +24,7 @@
 // Singleton code from: http://www.yolinux.com/TUTORIALS/C++Singleton.html
 class LirCommand{
 
-    pthread_mutex_t commandMutex;
+    boost::mutex commandMutex;
     bool running;
     char* outputFolder;
 
@@ -32,6 +36,9 @@ class LirCommand{
     // Sensor Classes
     std::vector<EthSensor *> sensors;
 
+    // Parser Functions
+    std::map<std::string, boost::function<void (LirCommand*,int,char*)> > commands;
+
     private:
         LirCommand();
         LirCommand(LirCommand const&){};
@@ -39,12 +46,16 @@ class LirCommand{
         static LirCommand* m_pInstance;
         void ConnectListeners();
 
+        void receiveStartCommand(int connection, char* buffer);
+        void receiveStopCommand(int connection, char* buffer);
+
     public:
         static LirCommand* Instance();
         ~LirCommand();
         bool loadConfig(char* configPath);
         bool startLogger();
         bool stopLogger();
+        void parseCommand(int connection, char* buffer);
 };
 
 

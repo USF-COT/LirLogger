@@ -18,7 +18,7 @@
 Spyder3Camera::Spyder3Camera(const char* _MAC, unsigned int _pipelineBufferMax) : pipelineBufferMax(_pipelineBufferMax){
     MAC = (char*) malloc(sizeof(char)*(strlen(_MAC)+1));
     strncpy(MAC,_MAC,strlen(_MAC)+1);
-    camThread = NULL;
+    isRunning = false;
 }
 
 Spyder3Camera::~Spyder3Camera(){
@@ -26,22 +26,35 @@ Spyder3Camera::~Spyder3Camera(){
 }
 
 bool Spyder3Camera::start(){
-    if(camThread == NULL){
+    bool running;
+
+    runMutex.lock();
+    running = isRunning;
+    runMutex.unlock();
+
+    if(!running){
         isRunning = true;
         syslog(LOG_DAEMON|LOG_INFO,"Starting camera thread.");
         camThread = new boost::thread(boost::ref(*this));
+    } else {
+        syslog(LOG_DAEMON|LOG_INFO,"Camera thread currently running.");
     }
 }
 
 bool Spyder3Camera::stop(){
-    if(camThread != NULL){
+    bool running;
+
+    runMutex.lock();
+    running = isRunning;
+    runMutex.unlock();
+
+    if(running){
         runMutex.lock();
         isRunning = false;
         runMutex.unlock();
         
-        syslog(LOG_DAEMON|LOG_INFO,"Joining camera thread.");
         if(camThread) camThread->join();
-        camThread = NULL;
+        syslog(LOG_DAEMON|LOG_INFO,"Camera thread stopped.");
     }
 }
 

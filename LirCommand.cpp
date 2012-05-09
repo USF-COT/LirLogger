@@ -53,11 +53,11 @@ class ConfigXMLErrorHandler: public ErrorHandler
 LirCommand* LirCommand::m_pInstance = NULL;
 
 LirCommand::LirCommand() : running(false),camera(NULL){
-    pthread_mutex_init(&commandMutex,NULL);
+    commands["go"] = &LirCommand::receiveStartCommand;
+    commands["stop"] = &LirCommand::receiveStopCommand; 
 }
 
 LirCommand::~LirCommand(){
-    pthread_mutex_destroy(&commandMutex);
     if(outputFolder) free(outputFolder);
 }
 
@@ -69,21 +69,39 @@ LirCommand* LirCommand::Instance()
     return m_pInstance;
 }
 
+void LirCommand::receiveStartCommand(int connection, char* buffer){
+    this->startLogger();
+}
+
 bool LirCommand::startLogger(){
     if(!this->running){
-        pthread_mutex_lock(&this->commandMutex);
+        commandMutex.lock();
         if(this->camera) this->camera->start();
         this->running = true;
-        pthread_mutex_unlock(&this->commandMutex);
+        commandMutex.unlock();
     }
+}
+
+void LirCommand::receiveStopCommand(int connection, char* buffer){
+    this->stopLogger();
 }
 
 bool LirCommand::stopLogger(){
     if(running){
-        pthread_mutex_lock(&this->commandMutex);
+        commandMutex.lock();
         if(this->camera) this->camera->stop();
-        this->running = true;
-        pthread_mutex_unlock(&this->commandMutex);
+        this->running = false;
+        commandMutex.unlock();
+    }
+}
+
+void LirCommand::parseCommand(int connection, char* buffer){
+    std::string bufString = std::string(buffer);
+    std::string key = bufString.substr(0,bufString.find_first_of(" \n\r"));
+    if(commands.count(key) > 0){
+        commands[key](this,connection,buffer);
+    } else {
+        syslog(LOG_DAEMON|LOG_ERR,"Unrecognized command %s. Buffer %s",key.c_str(),bufString.c_str());
     }
 }
 
@@ -115,7 +133,7 @@ bool LirCommand::loadConfig(char* configPath){
         parser->setDoSchema(true);
 
         DOMDocument* doc;
-        pthread_mutex_lock(&this->commandMutex);
+        commandMutex.lock();
         try{
             parser->parse(configPath);
             DOMDocument* doc = parser->getDocument();
@@ -180,7 +198,7 @@ bool LirCommand::loadConfig(char* configPath){
         delete eh;
         XMLPlatformUtils::Terminate();
 
-        pthread_mutex_unlock(&this->commandMutex);
+        commandMutex.unlock();
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "Cannot reconfigure a running command instance.");
     }

@@ -26,6 +26,7 @@
 #define MAXBUF 1024 
 #define IMGBUFSIZE 32
 
+LirCommand* com;
 volatile sig_atomic_t daemonrunning=1;
 
 int list_s; // Listening socket
@@ -38,18 +39,22 @@ void catch_term(int sig){
 
 void* handleConnection(int connection){
     char buffer[MAXBUF+1];
-    int numBytesReceived, offset;
+    int numBytesReceived;
 
-    numBytesReceived = recv(connection,buffer,MAXBUF,0);
-    while(numBytesReceived > 0 && daemonrunning){
-        // Terminate buffer
-        buffer[numBytesReceived] = '\0';
-        offset = 0;
-        do{
-            //offset += parseCommand(connection,buffer,offset,MAXBUF);
-        }while(offset <= MAXBUF && buffer[offset] != '\0' && daemonrunning);
+    do{
         numBytesReceived = recv(connection,buffer,MAXBUF,0);
-    }
+        if(numBytesReceived > 0){
+            // Terminate buffer
+            buffer[numBytesReceived] = '\0';
+            
+            // Check for exit
+            std::string bufString(buffer);
+            if(bufString.substr(0,bufString.find_first_of(" \r\n",0)).compare("exit") == 0) break;
+
+            syslog(LOG_DAEMON|LOG_INFO,"Received: %s", buffer);
+            com->parseCommand(connection,buffer);
+        }
+    }while(numBytesReceived >= 0 && daemonrunning);
 
     if ( close(connection) < 0 ) {
         syslog(LOG_DAEMON|LOG_ERR,"(Connection %d)Error calling close() on connection socket. Daemon Terminated.",connection);
@@ -66,6 +71,7 @@ int main(){
     int i;
     unsigned int numClients = 0;
     boost::thread_group *tgroup = new boost::thread_group();
+    std::vector<int> clients;
 
     printf("Starting Lir Logger.  All subsequent messages will be appended to system log.\n");
 
@@ -78,12 +84,10 @@ int main(){
 
     // Initialize the Spyder 3 Camera
     syslog(LOG_DAEMON|LOG_INFO,"Creating command instance.");
-    LirCommand* com = LirCommand::Instance();
+    com = LirCommand::Instance();
     syslog(LOG_DAEMON|LOG_INFO,"Loading configuration.");
     com->loadConfig("/etc/LirLogger/config.xml");
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
-
-    com->startLogger();
 
     // Setup SIGTERM Handler
     signal(SIGTERM,catch_term); 
@@ -123,13 +127,9 @@ int main(){
 
         // Spawn a Server Thread to Handle Connected Socket
         syslog(LOG_DAEMON|LOG_INFO,"Handling new connection on port %i",port);
+        clients.push_back(conn_s);
         tgroup->add_thread(new boost::thread(handleConnection,conn_s));
         //pthread_create(&thread_bin[i],NULL,handleConnection, (void*)info);
-
-        if(i > NUM_THREADS){
-            syslog(LOG_DAEMON|LOG_ERR,"Unable to create thread to handle connection.  Continuing...");
-        }
-
     }
     tgroup->join_all();
     com->stopLogger();
