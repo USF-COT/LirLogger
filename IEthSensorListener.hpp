@@ -8,8 +8,8 @@
 using namespace std;
 
 typedef struct{
-    const string field;
-    const bool isNum;
+    string field;
+    bool isNum;
     string text;
     double num;
 }EthSensorReading;
@@ -17,7 +17,7 @@ typedef struct{
 class IEthSensorListener{
     public:
         virtual ~IEthSensorListener(){}
-        virtual void processReading(const std::vector<EthSensorReading>* readings) = 0;
+        virtual void processReading(const vector<EthSensorReading>* readings) = 0;
 };
 
 #endif

@@ -7,7 +7,7 @@
 #include <boost/thread.hpp>
 #include <iostream>
 #include <boost/asio.hpp>
-#include <boost/array.hpp>
+#include <boost/thread.hpp>
 
 #include "IEthSensorListener.hpp"
 
@@ -24,7 +24,7 @@ private:
     vector<string> fields;
     string startChars;
     string endChars;
-    vector<const IEthSensorListener *> listeners;
+    vector<IEthSensorListener *> listeners;
 
     boost::mutex runMutex;
     boost::mutex listenersMutex;
@@ -35,6 +35,8 @@ private:
     boost::asio::ip::tcp::socket* readSock;
     boost::asio::streambuf buf;
 
+    boost::thread* readThread;
+
     void parseLine(const boost::system::error_code& ec, size_t bytes_transferred);
 
 public:
@@ -42,8 +44,9 @@ public:
     ~EthSensor();
     bool Connect();
     bool Disconnect();
-    void addListener(const IEthSensorListener *l);
+    void addListener(IEthSensorListener *l);
     bool isRunning();
+    void operator() ();
 };
 
 #endif
