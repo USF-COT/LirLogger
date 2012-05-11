@@ -15,6 +15,10 @@ EthSensor::EthSensor(const string _IP, const unsigned int _port, const string _n
     
 }
 
+EthSensor::~EthSensor(){
+    this->Disconnect(); // Run this in case the sensor is left connected
+}
+
 bool EthSensor::isRunning(){
     bool retVal;
     runMutex.lock();
@@ -37,7 +41,8 @@ bool EthSensor::Connect(){
 
             readSock = new boost::asio::ip::tcp::socket(ios);
             boost::asio::connect(*readSock,resolver.resolve(query));
-            boost::asio::async_read_until(*readSock,buf," \r\n",boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+            if(startChars.length() > 0) readSock->write_some(boost::asio::buffer(startChars));
+            boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             readThread = new boost::thread(boost::ref(*this));
         } catch (std::exception& e){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
@@ -58,7 +63,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
 
             vector<EthSensorReading>* readings = new vector<EthSensorReading>();
             unsigned int i=0;
-            boost::char_separator<char> sep(" ");
+            boost::char_separator<char> sep(delimeter.c_str());
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
                 EthSensorReading r;
@@ -84,7 +89,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             delete readings;
 
             // Schedule next request
-            boost::asio::async_read_until(*readSock,buf,"\r\n",boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
+            boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
         } else {
             ios.stop();
         }
@@ -100,6 +105,7 @@ bool EthSensor::Disconnect(){
         running = false;
         runMutex.unlock();
         
+        if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));
         readSock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
         readSock->close();
         if(readThread) readThread->join();
