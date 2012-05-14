@@ -23,9 +23,11 @@ Spyder3TiffWriter::Spyder3TiffWriter(char* _outputFolder){
     folderID = 0;
     frameID = 0;
 
+    idMutex.lock();
     do{
         sprintf(fullPath,"%s/%d",outputFolderPath,++folderID);
     } while(mkdir(fullPath,0775) != 0 && folderID < ULONG_MAX);
+    idMutex.unlock();
 
     if(folderID == ULONG_MAX)
         syslog(LOG_DAEMON|LOG_ERR, "Unable to log in this output folder because %d folders already found.",ULONG_MAX);
@@ -36,11 +38,21 @@ Spyder3TiffWriter::~Spyder3TiffWriter(){
     free(fullPath);
 }
 
+std::pair<unsigned long, unsigned long> Spyder3TiffWriter::getFolderFrameIDs(){
+    std::pair<unsigned long, unsigned long> retVal;
+    idMutex.lock();
+    retVal.first = folderID;
+    retVal.second = frameID;
+    idMutex.unlock();
+    return retVal;
+}
+
 void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
     if(frameID >= MAXFILESPERFOLDER){
         frameID=0;
 
         unsigned long lastFolderID = folderID-1;
+        idMutex.lock();
         do{
             sprintf(fullPath,"%s/%d",outputFolderPath,++folderID);
         } while(mkdir(fullPath,0775) != 0 && folderID < ULONG_MAX);
@@ -49,10 +61,13 @@ void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
             syslog(LOG_DAEMON|LOG_ERR, "Unable to log in this output folder because %d folders already found.",ULONG_MAX);
             return;
         }
+        idMutex.unlock();
     }
 
     fullPath[0] = '\0';
+    idMutex.lock();
     sprintf(fullPath,"%s/%d/%d-%d.tif",outputFolderPath,folderID,folderID,++frameID);
+    idMutex.unlock();
     syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",fullPath);
 
     TIFF *out = TIFFOpen(fullPath,"w");

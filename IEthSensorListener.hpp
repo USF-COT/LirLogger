@@ -3,7 +3,8 @@
 #define IETHSENSORLISTENER_HPP
 
 #include <vector>
-#include <string.h>
+#include <string>
+#include <time.h>
 
 using namespace std;
 
@@ -17,7 +18,7 @@ typedef struct{
 class IEthSensorListener{
     public:
         virtual ~IEthSensorListener(){}
-        virtual void processReading(const vector<EthSensorReading>* readings) = 0;
+        virtual void processReading(time_t time, const vector<EthSensorReading>& readings) = 0;
 };
 
 #endif

@@ -9,6 +9,11 @@
 #include <syslog.h>
 #include <iostream>
 #include <string>
+#include <map>
+
+#include <boost/foreach.hpp>
+#include <boost/tokenizer.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include <xercesc/util/XMLUni.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -21,6 +26,7 @@
 
 #define SCHEMAPATH "LirConfigSchema.xsd"
 
+using namespace std;
 using namespace xercesc;
 
 class ConfigXMLErrorHandler: public ErrorHandler
@@ -102,8 +108,8 @@ bool LirCommand::stopLogger(){
 }
 
 void LirCommand::parseCommand(int connection, char* buffer){
-    std::string bufString = std::string(buffer);
-    std::string key = bufString.substr(0,bufString.find_first_of(" \n\r"));
+    string bufString = string(buffer);
+    string key = bufString.substr(0,bufString.find_first_of(" \n\r"));
     if(commands.count(key) > 0){
         commands[key](this,connection,buffer);
     } else {
@@ -111,9 +117,81 @@ void LirCommand::parseCommand(int connection, char* buffer){
     }
 }
 
+
+// Config parsing functions follow
+
 void LirCommand::ConnectListeners(){
     this->writer = new Spyder3TiffWriter(this->outputFolder);
     this->camera->addListener(this->writer);
+    for(unsigned int i=0; i < sensors.size(); ++i){
+        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer,string(this->outputFolder));
+        sensorWriters.push_back(sensorWriter);
+        sensors[i]->addListener(sensorWriter);
+    }
+}
+
+// Taken from http://stackoverflow.com/questions/5612182/convert-string-with-explicit-escape-sequence-into-relative-character
+string unescape(const string& s)
+{
+    string res;
+    string::const_iterator it = s.begin();
+    while (it != s.end())
+    {
+        char c = *it++;
+        if (c == '\\' && it != s.end())
+        {
+            switch (*it++) {
+                case '\\': c = '\\'; break;
+                case 'r': c = '\r'; break;
+                case 'n': c = '\n'; break;
+                case 't': c = '\t'; break;
+                          // all other escapes
+                default: 
+                          // invalid escape sequence - skip it. alternatively you can copy it as is, throw an exception...
+                          continue;
+            }
+        }
+        res += c;
+    }
+
+    return res;
+}
+
+EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
+    EthSensor* retVal = NULL;
+    if(sensorProps){
+        map<string,string> params;
+        unsigned int port;
+        for(unsigned int i=0; i < sensorProps->getLength(); ++i){
+            DOMNode* node = sensorProps->item(i);
+            string key(XMLString::transcode(node->getNodeName()));
+            string val(XMLString::transcode(node->getTextContent()));
+            params[key] = val;
+        }
+        try{
+            port = boost::lexical_cast<unsigned int>(params["Port"]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid port number in configuration file: %s is not an integer.",params["Port"].c_str());
+            return retVal;
+        }
+
+        params["StartChars"] = unescape(params["StartChars"]);
+        params["EndChars"] = unescape(params["EndChars"]);
+        params["LineEnd"] = unescape(params["LineEnd"]);
+        params["Delimeter"] = unescape(params["Delimeter"]);
+
+        syslog(LOG_DAEMON|LOG_INFO,"Read %s sensor configuration as - Address: %s:%d, StartChars: %s, EndChars: %s, Delimeter: %s, LineEnd: %s, Fields: %s.",params["Name"].c_str(),params["IPAddress"].c_str(),port,params["StartChars"].c_str(),params["EndChars"].c_str(),params["Delimeter"].c_str(),params["LineEnd"].c_str(),params["Fields"].c_str()); 
+
+        // Parse out fields
+        vector<string> fields;
+        boost::char_separator<char> sep(",");
+        boost::tokenizer< boost::char_separator<char> > tokens(params["Fields"], sep);
+        BOOST_FOREACH(string t, tokens){
+            fields.push_back(t);
+        }
+        retVal = new EthSensor(params["IPAddress"],port,params["Name"],params["LineEnd"],params["Delimeter"],fields,params["StartChars"],params["EndChars"]);
+    }
+    return retVal;
 }
 
 bool LirCommand::loadConfig(char* configPath){
@@ -183,6 +261,15 @@ bool LirCommand::loadConfig(char* configPath){
                     }
                 }
 
+                DOMNodeList* sensorNodes = doc->getElementsByTagNameNS(XMLString::transcode("*"),XMLString::transcode("EthernetSensor"));
+                if(sensorNodes){
+                    for(unsigned int i=0; i < sensorNodes->getLength(); ++i){
+                        DOMNodeList* sensorProps = sensorNodes->item(i)->getChildNodes();
+                        EthSensor* sensor = processSensorNodeProps(sensorProps);
+                        if(sensor) sensors.push_back(sensor);
+                    }
+                }
+
             } else {
                 syslog(LOG_DAEMON|LOG_ERR,"Unable to load DOM tree from document.");
             }
@@ -210,11 +297,6 @@ bool LirCommand::loadConfig(char* configPath){
     }
 
     this->ConnectListeners();
-
-    static const string arr[] = {"blah","foo"};
-    vector<string> fields(arr,arr+sizeof(arr)/sizeof(arr[0]));
-    EthSensor* sensor = new EthSensor("131.247.138.19",4000,"AMLCTD","\r\n"," ",fields,"","");
-    sensors.push_back(sensor);
 
     return parsed;
 }

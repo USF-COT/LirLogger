@@ -21,6 +21,8 @@
 #include "Spyder3TiffWriter.hpp"
 //#include "Spyder3FrameTracker.hpp"
 
+#include "LirSQLiteWriter.hpp"
+
 // Singleton code from: http://www.yolinux.com/TUTORIALS/C++Singleton.html
 class LirCommand{
 
@@ -35,6 +37,7 @@ class LirCommand{
 
     // Sensor Classes
     std::vector<EthSensor *> sensors;
+    std::vector<LirSQLiteWriter *> sensorWriters;
 
     // Parser Functions
     std::map<std::string, boost::function<void (LirCommand*,int,char*)> > commands;

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<LirConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:noNamespaceSchemaLocation="LirConfigSchema.xsd">
+    <OutputFolder>/archives/test</OutputFolder>
+    <GigECamera>
+        <MACAddress>00-11-1c-f0-0f-09</MACAddress>
+        <BufferLength>16</BufferLength>
+    </GigECamera>
+    <EthernetSensor>
+        <Name>AMLCTD</Name>
+        <IPAddress>131.247.138.19</IPAddress>
+        <Port>4000</Port>
+        <StartChars></StartChars>
+        <EndChars></EndChars>
+        <Delimeter> </Delimeter>
+        <LineEnd>\r\n</LineEnd>
+        <Fields>
+            <Field numeric="true" name="conductivity"/>
+            <Field numeric="true" name="pressure"/>
+            <Field numeric="true" name="temperature"/>
+            <Field numeric="true" name="voltage"/>
+            <Field numeric="true" name="salinity"/>
+        </Fields>
+    </EthernetSensor>
+</LirConfig>

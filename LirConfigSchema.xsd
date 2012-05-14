@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+    <xs:element name="LirConfig">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="OutputFolder" type="xs:string"/>
+                <xs:element name="GigECamera">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="MACAddress" type="xs:string"/>
+                            <xs:element name="BufferLength" type="xs:positiveInteger" minOccurs="0"/>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+                <xs:element name="EthernetSensor" minOccurs="0" maxOccurs="unbounded">
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="Name" type="xs:string"/>
+                            <xs:element name="IPAddress" type="xs:string"/>
+                            <xs:element name="Port" type="xs:positiveInteger"/>
+                            <xs:element name="StartChars" type="xs:string"/>
+                            <xs:element name="EndChars" type="xs:string"/>
+                            <xs:element name="Delimeter" type="xs:string"/>
+                            <xs:element name="LineEnd" type="xs:string"/>
+                            <xs:element name="Fields">
+                                <xs:complexType>
+                                    <xs:sequence>
+                                        <xs:element name="Field" maxOccurs="unbounded">
+                                            <xs:complexType>
+                                                <xs:attribute name="numeric" type="xs:boolean" default="false"/>
+                                                <xs:attribute name="name" type="xs:string"/>
+                                            </xs:complexType>
+                                        </xs:element>
+                                    </xs:sequence>
+                                </xs:complexType>
+                            </xs:element>
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+</xs:schema>

@@ -7,12 +7,14 @@
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <time.h>
 
 using namespace std;
 
 EthSensor::EthSensor(const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<string> _fields, const string _startChars, const string _endChars) : IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
     running = false;
-    
+
 }
 
 EthSensor::~EthSensor(){
@@ -53,6 +55,7 @@ bool EthSensor::Connect(){
 }
 
 void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
+    time_t t = time(NULL);
     if(!ec){
         runMutex.lock();
         if(running){
@@ -61,7 +64,9 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             string line;
             getline(is,line);
 
-            vector<EthSensorReading>* readings = new vector<EthSensorReading>();
+            boost::algorithm::trim(line);
+
+            vector<EthSensorReading> readings;
             unsigned int i=0;
             boost::char_separator<char> sep(delimeter.c_str());
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
@@ -76,17 +81,15 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                 } catch( boost::bad_lexical_cast const &){
                     r.isNum = false;
                 }
+                readings.push_back(r);
             }
 
             // Pass Reading to Handlers            
             listenersMutex.lock();
             for(i=0; i < listeners.size(); ++i){
-                listeners[i]->processReading(readings);
+                listeners[i]->processReading(t, readings);
             }
             listenersMutex.unlock();
-
-            // Housekeeping!
-            delete readings;
 
             // Schedule next request
             boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
@@ -104,10 +107,14 @@ bool EthSensor::Disconnect(){
         runMutex.lock();
         running = false;
         runMutex.unlock();
-        
-        if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));
-        readSock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
-        readSock->close();
+
+        try{
+            if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));
+            readSock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
+            readSock->close();
+        } catch (std::exception& e){
+            syslog(LOG_DAEMON|LOG_ERR,"Unable to disconnect ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
+        }
         if(readThread) readThread->join();
         syslog(LOG_DAEMON|LOG_INFO,"Sensor %s disconnected",name.c_str());            
     }
