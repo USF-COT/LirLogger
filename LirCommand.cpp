@@ -124,9 +124,8 @@ void LirCommand::ConnectListeners(){
     this->writer = new Spyder3TiffWriter(this->outputFolder);
     this->camera->addListener(this->writer);
     for(unsigned int i=0; i < sensors.size(); ++i){
-        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer,string(this->outputFolder));
+        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], string(this->outputFolder));
         sensorWriters.push_back(sensorWriter);
-        sensors[i]->addListener(sensorWriter);
     }
 }
 

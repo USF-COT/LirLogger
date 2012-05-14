@@ -3,6 +3,7 @@
 #define LIRSQLITE3_HPP
 
 #include "Spyder3TiffWriter.hpp"
+#include "EthSensor.hpp"
 #include "IEthSensorListener.hpp"
 #include "sqlite3.h"
 #include <time.h>
@@ -12,9 +13,10 @@ class LirSQLiteWriter : public IEthSensorListener{
         sqlite3 *db;
         string dbPath;
         Spyder3TiffWriter* camWriter; // Used to relate sensor readings to camera frames
+        EthSensor* sensor;
     
     public:
-        LirSQLiteWriter(Spyder3TiffWriter* _camWriter, string outputDirectory);
+        LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
         ~LirSQLiteWriter();
         virtual void processReading(time_t time, const vector<EthSensorReading>& readings);
 };
