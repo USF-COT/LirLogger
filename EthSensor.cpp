@@ -12,7 +12,7 @@
 
 using namespace std;
 
-EthSensor::EthSensor(const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<string> _fields, const string _startChars, const string _endChars) : IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
+EthSensor::EthSensor(const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
     running = false;
 
 }
@@ -73,13 +73,15 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             BOOST_FOREACH(string t, tokens){
                 EthSensorReading r;
                 i = i < fields.size()-1 ? ++i : i=0;
-                r.field = fields[i];
+                r.field = fields[i].name;
                 r.text = t;
-                try{
-                    r.num = boost::lexical_cast<double>(t);
-                    r.isNum = true;
-                } catch( boost::bad_lexical_cast const &){
-                    r.isNum = false;
+                if(fields[i].isNumeric){
+                    try{
+                        r.num = boost::lexical_cast<double>(t);
+                        r.isNum = true;
+                    } catch( boost::bad_lexical_cast const &){
+                        r.isNum = false;
+                    }
                 }
                 readings.push_back(r);
             }
@@ -128,4 +130,9 @@ void EthSensor::addListener(IEthSensorListener *l){
 
 void EthSensor::operator() (){
     ios.run();
+}
+
+vector<FieldDescriptor> EthSensor::getFieldDescriptors(){
+    vector<FieldDescriptor> retVal(this->fields);
+    return retVal;
 }

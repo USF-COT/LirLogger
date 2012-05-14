@@ -162,11 +162,31 @@ EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
     if(sensorProps){
         map<string,string> params;
         unsigned int port;
+        vector<FieldDescriptor> fields;
         for(unsigned int i=0; i < sensorProps->getLength(); ++i){
             DOMNode* node = sensorProps->item(i);
             string key(XMLString::transcode(node->getNodeName()));
             string val(XMLString::transcode(node->getTextContent()));
-            params[key] = val;
+
+            // Only element to be handled differently is the fields element
+            if(key.compare("Fields") == 0){
+                DOMNodeList* fieldsNodes = node->getChildNodes();
+                for(unsigned int j=0; j < fieldsNodes->getLength(); ++j){
+                    FieldDescriptor d;
+                    DOMNode* fieldN = fieldsNodes->item(j);
+                    if(XMLString::equals(fieldN->getNodeName(),XMLString::transcode("Field"))){
+                        DOMNamedNodeMap* attrs = fieldN->getAttributes();
+                        DOMNode* numericA = attrs->getNamedItem(XMLString::transcode("numeric"));
+                        DOMNode* nameA = attrs->getNamedItem(XMLString::transcode("name"));
+                        d.isNumeric = XMLString::equals(numericA->getTextContent(),XMLString::transcode("true"));
+                        d.name = string(XMLString::transcode(nameA->getTextContent()));
+                        syslog(LOG_DAEMON|LOG_INFO,"Found field. Name: %s, Numeric?: %s.",d.name.c_str(),d.isNumeric?"TRUE":"FALSE");
+                        fields.push_back(d);
+                    }
+                }
+            } else {
+                params[key] = val;
+            }
         }
         try{
             port = boost::lexical_cast<unsigned int>(params["Port"]);
@@ -182,13 +202,6 @@ EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
 
         syslog(LOG_DAEMON|LOG_INFO,"Read %s sensor configuration as - Address: %s:%d, StartChars: %s, EndChars: %s, Delimeter: %s, LineEnd: %s, Fields: %s.",params["Name"].c_str(),params["IPAddress"].c_str(),port,params["StartChars"].c_str(),params["EndChars"].c_str(),params["Delimeter"].c_str(),params["LineEnd"].c_str(),params["Fields"].c_str()); 
 
-        // Parse out fields
-        vector<string> fields;
-        boost::char_separator<char> sep(",");
-        boost::tokenizer< boost::char_separator<char> > tokens(params["Fields"], sep);
-        BOOST_FOREACH(string t, tokens){
-            fields.push_back(t);
-        }
         retVal = new EthSensor(params["IPAddress"],port,params["Name"],params["LineEnd"],params["Delimeter"],fields,params["StartChars"],params["EndChars"]);
     }
     return retVal;
