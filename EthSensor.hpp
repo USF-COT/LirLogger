@@ -14,7 +14,7 @@
 using namespace std;
 
 typedef struct{
-    bool isNumeric;
+    bool isNum;
     string name;
 }FieldDescriptor;
 
@@ -52,6 +52,7 @@ public:
     void addListener(IEthSensorListener *l);
     bool isRunning();
     void operator() ();
+    string getName();
     vector<FieldDescriptor> getFieldDescriptors();
 };
 

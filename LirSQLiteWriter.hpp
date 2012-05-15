@@ -14,11 +14,15 @@ class LirSQLiteWriter : public IEthSensorListener{
         string dbPath;
         Spyder3TiffWriter* camWriter; // Used to relate sensor readings to camera frames
         EthSensor* sensor;
+        string insertStmt;
+        vector<FieldDescriptor> fields;
     
     public:
         LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
         ~LirSQLiteWriter();
+        virtual void sensorStarting();
         virtual void processReading(time_t time, const vector<EthSensorReading>& readings);
+        virtual void sensorStopping();
 };
 
 #endif

@@ -68,7 +68,7 @@ void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
     idMutex.lock();
     sprintf(fullPath,"%s/%d/%d-%d.tif",outputFolderPath,folderID,folderID,++frameID);
     idMutex.unlock();
-    syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",fullPath);
+    //syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",fullPath);
 
     TIFF *out = TIFFOpen(fullPath,"w");
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);

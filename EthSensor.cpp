@@ -75,7 +75,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                 i = i < fields.size()-1 ? ++i : i=0;
                 r.field = fields[i].name;
                 r.text = t;
-                if(fields[i].isNumeric){
+                if(fields[i].isNum){
                     try{
                         r.num = boost::lexical_cast<double>(t);
                         r.isNum = true;
@@ -129,7 +129,25 @@ void EthSensor::addListener(IEthSensorListener *l){
 }
 
 void EthSensor::operator() (){
+    listenersMutex.lock();
+    BOOST_FOREACH(IEthSensorListener* l, listeners){
+        l->sensorStarting();
+    }
+    listenersMutex.unlock();
+
+    ios.reset();
     ios.run();
+    
+    listenersMutex.lock();
+    BOOST_FOREACH(IEthSensorListener* l, listeners){
+        l->sensorStopping();
+    }
+    listenersMutex.unlock(); 
+}
+
+string EthSensor::getName(){
+    string retVal(this->name);
+    return retVal;
 }
 
 vector<FieldDescriptor> EthSensor::getFieldDescriptors(){

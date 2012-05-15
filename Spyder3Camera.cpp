@@ -193,7 +193,6 @@ void Spyder3Camera::operator() (){
             }
 
             if(lWidth > 0 && lHeight > 0){
-                syslog(LOG_DAEMON|LOG_INFO,"Image received.");
                 listenersMutex.lock();
                 // Pass buffer to each listener in the vector
                 for(unsigned int i=0; i < listeners.size(); ++i){

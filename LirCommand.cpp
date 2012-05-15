@@ -177,9 +177,9 @@ EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
                         DOMNamedNodeMap* attrs = fieldN->getAttributes();
                         DOMNode* numericA = attrs->getNamedItem(XMLString::transcode("numeric"));
                         DOMNode* nameA = attrs->getNamedItem(XMLString::transcode("name"));
-                        d.isNumeric = XMLString::equals(numericA->getTextContent(),XMLString::transcode("true"));
+                        d.isNum = XMLString::equals(numericA->getTextContent(),XMLString::transcode("true"));
                         d.name = string(XMLString::transcode(nameA->getTextContent()));
-                        syslog(LOG_DAEMON|LOG_INFO,"Found field. Name: %s, Numeric?: %s.",d.name.c_str(),d.isNumeric?"TRUE":"FALSE");
+                        syslog(LOG_DAEMON|LOG_INFO,"Found field. Name: %s, Numeric?: %s.",d.name.c_str(),d.isNum?"TRUE":"FALSE");
                         fields.push_back(d);
                     }
                 }
