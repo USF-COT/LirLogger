@@ -25,6 +25,14 @@ Spyder3Camera::~Spyder3Camera(){
     free(MAC);
 }
 
+string Spyder3Camera::getMAC(){
+    return string(this->MAC);
+}
+
+unsigned int Spyder3Camera::getNumBuffers(){
+    return this->pipelineBufferMax;
+}
+
 bool Spyder3Camera::start(){
     bool running;
 

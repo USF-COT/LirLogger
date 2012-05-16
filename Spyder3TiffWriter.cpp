@@ -12,7 +12,7 @@ extern "C"{
 #include <syslog.h>
 #include <limits.h>
 
-#define MAXFILESPERFOLDER 1200 // Files to write to a folder before rolling over to the next folder
+#define MAXFILESPERFOLDER 1000 // Files to write to a folder before rolling over to the next folder
 
 Spyder3TiffWriter::Spyder3TiffWriter(char* _outputFolder){
     outputFolderPath = (char*) malloc(sizeof(char)*(strlen(_outputFolder)+1));

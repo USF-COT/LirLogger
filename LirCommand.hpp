@@ -49,6 +49,7 @@ class LirCommand{
         static LirCommand* m_pInstance;
         void ConnectListeners();
 
+        void receiveStatusCommand(int connection, char* buffer);
         void receiveStartCommand(int connection, char* buffer);
         void receiveStopCommand(int connection, char* buffer);
 

@@ -59,8 +59,9 @@ class ConfigXMLErrorHandler: public ErrorHandler
 LirCommand* LirCommand::m_pInstance = NULL;
 
 LirCommand::LirCommand() : running(false),camera(NULL){
-    commands["go"] = &LirCommand::receiveStartCommand;
+    commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
+    commands["status"] = &LirCommand::receiveStatusCommand;
 }
 
 LirCommand::~LirCommand(){
@@ -73,6 +74,41 @@ LirCommand* LirCommand::Instance()
         m_pInstance = new LirCommand(); 
     }
     return m_pInstance;
+}
+
+void LirCommand::receiveStatusCommand(int connection, char* buffer){
+    commandMutex.lock();
+    stringstream response;
+
+    // Compose system status
+    string status = this->running ? "RUNNING":"STOPPED";
+    response << "SYSTEM " << status << "\r\n";
+
+    // Compose output type
+    response << "All files being written to " << this->outputFolder << "\r\n";
+
+    // Compose camera status
+    if(this->camera){
+        response << "Camera connected @ " << this->camera->getMAC() << " with " << this->camera->getNumBuffers() << " buffers\r\n";
+    } else {
+        response << "Camera NOT CONNECTED\r\n";
+    }
+
+    // Compose sensor statuses
+    for(unsigned int i=0; i < sensors.size(); ++i){
+        response << "Sensor[" << i << "]" << sensors[i]->getName() << ":time(number),frame_id(number),folder_id(number)";
+        vector<FieldDescriptor> fields = sensors[i]->getFieldDescriptors();
+        for(unsigned int j=0; j < fields.size(); ++j){
+            string type = fields[j].isNum ? "number" : "text";
+            response << "," << fields[j].name << "(" << type << ")";
+        }
+        response << "\r\n";
+    }
+
+    string resString = response.str();
+    send(connection, resString.c_str(), resString.length(), 0);
+    
+    commandMutex.unlock();
 }
 
 void LirCommand::receiveStartCommand(int connection, char* buffer){

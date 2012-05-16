@@ -2,16 +2,19 @@
 #ifndef SPY3CAM_HPP
 #define SPY3CAM_HPP
 
+#include <string>
 #include <vector>
 #include <boost/thread.hpp>
 #include "ISpyder3Listener.hpp"
+
+using namespace std;
 
 class Spyder3Camera{
 
 private:
     char* MAC;
     unsigned int pipelineBufferMax;
-    std::vector<ISpyder3Listener*> listeners;
+    vector<ISpyder3Listener*> listeners;
     
     boost::thread* camThread;
     boost::mutex runMutex;
@@ -21,6 +24,9 @@ private:
 public:
     Spyder3Camera(const char* _MAC, unsigned int _pipelineBufferMax=32);
     ~Spyder3Camera();
+
+    string getMAC();
+    unsigned int getNumBuffers();
     
     void addListener(ISpyder3Listener *l);
     bool start();

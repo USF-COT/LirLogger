@@ -95,6 +95,6 @@ void LirSQLiteWriter::processReading(time_t time, const vector<EthSensorReading>
 }
 
 void LirSQLiteWriter::sensorStopping(){
-    sqlite3_close(db);
+    if(db) sqlite3_close(db);
     syslog(LOG_DAEMON|LOG_INFO, "Sqlite3 database @ %s closed.",dbPath.c_str());
 }
