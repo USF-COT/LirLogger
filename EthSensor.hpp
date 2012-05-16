@@ -4,7 +4,6 @@
 
 #include <string.h>
 #include <vector>
-#include <boost/thread.hpp>
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>

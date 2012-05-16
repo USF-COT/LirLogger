@@ -5,6 +5,7 @@ SRC_CPPS = \
            Spyder3TiffWriter.cpp \
            EthSensor.cpp \
            LirSQLiteWriter.cpp \
+           LirTCPServer.cpp \
 
 EXEC     = LirLogger
 

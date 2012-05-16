@@ -4,6 +4,8 @@
  * By: Michael Lindemuth
  */
 
+#ifndef LIRCOMMAND_HPP
+#define LIRCOMMAND_HPP
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +13,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include <string.h>
+#include <string>
 
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
@@ -22,6 +24,8 @@
 //#include "Spyder3FrameTracker.hpp"
 
 #include "LirSQLiteWriter.hpp"
+
+using namespace std;
 
 // Singleton code from: http://www.yolinux.com/TUTORIALS/C++Singleton.html
 class LirCommand{
@@ -36,11 +40,11 @@ class LirCommand{
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes
-    std::vector<EthSensor *> sensors;
-    std::vector<LirSQLiteWriter *> sensorWriters;
+    vector<EthSensor *> sensors;
+    vector<LirSQLiteWriter *> sensorWriters;
 
     // Parser Functions
-    std::map<std::string, boost::function<void (LirCommand*,int,char*)> > commands;
+    std::map<std::string, boost::function<string (LirCommand*,const string)> > commands;
 
     private:
         LirCommand();
@@ -49,9 +53,9 @@ class LirCommand{
         static LirCommand* m_pInstance;
         void ConnectListeners();
 
-        void receiveStatusCommand(int connection, char* buffer);
-        void receiveStartCommand(int connection, char* buffer);
-        void receiveStopCommand(int connection, char* buffer);
+        string receiveStatusCommand(const string message);
+        string receiveStartCommand(const string message);
+        string receiveStopCommand(const string message);
 
     public:
         static LirCommand* Instance();
@@ -59,7 +63,7 @@ class LirCommand{
         bool loadConfig(char* configPath);
         bool startLogger();
         bool stopLogger();
-        void parseCommand(int connection, char* buffer);
+        string parseCommand(const string message);
 };
 
-
+#endif

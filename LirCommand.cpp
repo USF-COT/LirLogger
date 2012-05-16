@@ -76,7 +76,7 @@ LirCommand* LirCommand::Instance()
     return m_pInstance;
 }
 
-void LirCommand::receiveStatusCommand(int connection, char* buffer){
+string LirCommand::receiveStatusCommand(const string command){
     commandMutex.lock();
     stringstream response;
 
@@ -106,13 +106,15 @@ void LirCommand::receiveStatusCommand(int connection, char* buffer){
     }
 
     string resString = response.str();
-    send(connection, resString.c_str(), resString.length(), 0);
     
     commandMutex.unlock();
+    
+    return resString;
 }
 
-void LirCommand::receiveStartCommand(int connection, char* buffer){
+string LirCommand::receiveStartCommand(const string command){
     this->startLogger();
+    return string();
 }
 
 bool LirCommand::startLogger(){
@@ -127,8 +129,9 @@ bool LirCommand::startLogger(){
     }
 }
 
-void LirCommand::receiveStopCommand(int connection, char* buffer){
+string LirCommand::receiveStopCommand(const string command){
     this->stopLogger();
+    return string();
 }
 
 bool LirCommand::stopLogger(){
@@ -143,13 +146,14 @@ bool LirCommand::stopLogger(){
     }
 }
 
-void LirCommand::parseCommand(int connection, char* buffer){
-    string bufString = string(buffer);
-    string key = bufString.substr(0,bufString.find_first_of(" \n\r"));
+string LirCommand::parseCommand(const string command){
+    string key = command.substr(0,command.find_first_of(" \n\r"));
     if(commands.count(key) > 0){
-        commands[key](this,connection,buffer);
+        return commands[key](this,command);
     } else {
-        syslog(LOG_DAEMON|LOG_ERR,"Unrecognized command %s. Buffer %s",key.c_str(),bufString.c_str());
+        stringstream response;
+        response << "Unrecognized command: " << key <<". Full buffer: " << command << "\r\n";
+        return response.str();
     }
 }
 
