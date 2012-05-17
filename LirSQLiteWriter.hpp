@@ -21,7 +21,7 @@ class LirSQLiteWriter : public IEthSensorListener{
         LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
         ~LirSQLiteWriter();
         virtual void sensorStarting();
-        virtual void processReading(time_t time, const vector<EthSensorReading>& readings);
+        virtual void processReading(const EthSensorReadingSet set);
         virtual void sensorStopping();
 };
 

@@ -77,7 +77,18 @@ void tcp_connection::writeStats(){
     Spyder3Stats stats = cmd->getCameraStats();
 
     stringstream ss;
-    ss << "CAM:" << stats.imageCount << "," << stats.framesDropped << "," << stats.frameRate << "," << stats.bandwidth << "\r\n";
+    // Create line for camera
+    ss << "CAM:" << stats.imageCount << "," << stats.framesDropped << "," << stats.frameRate << "\r\n";
+
+    // Create line for each sensor
+    vector<EthSensorReadingSet> sensorSets = cmd->getSensorSets();
+    for(unsigned int i=0; i < sensorSets.size(); ++i){
+        ss << sensorSets[i].sensorName << ":" << sensorSets[i].time;
+        for(unsigned int j=0; j < sensorSets[i].readings.size(); ++j){
+            ss << "," << sensorSets[i].readings[j].text;
+        }
+        ss << "\r\n";
+    }
 
     socket_.write_some(boost::asio::buffer(ss.str()));
 

@@ -168,11 +168,23 @@ void LirCommand::ConnectListeners(){
     for(unsigned int i=0; i < sensors.size(); ++i){
         LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], string(this->outputFolder));
         sensorWriters.push_back(sensorWriter);
+
+        MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
+        sensors[i]->addListener(memListener);
+        sensorMems.push_back(memListener);
     }
 }
 
 Spyder3Stats LirCommand::getCameraStats(){
     return this->camStats->getCurrentStats();
+}
+
+vector<EthSensorReadingSet> LirCommand::getSensorSets(){
+    vector<EthSensorReadingSet> retVal;
+    for(unsigned int i=0; i < sensorMems.size(); ++i){
+        retVal.push_back(sensorMems[i]->getCurrentReading());
+    }
+    return retVal;
 }
 
 // Taken from http://stackoverflow.com/questions/5612182/convert-string-with-explicit-escape-sequence-into-relative-character

@@ -55,7 +55,9 @@ bool EthSensor::Connect(){
 }
 
 void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
-    time_t t = time(NULL);
+    EthSensorReadingSet set;
+    set.time = time(NULL);
+    set.sensorName = this->name;
     if(!ec){
         runMutex.lock();
         if(running){
@@ -66,7 +68,6 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
 
             boost::algorithm::trim(line);
 
-            vector<EthSensorReading> readings;
             unsigned int i=0;
             boost::char_separator<char> sep(delimeter.c_str());
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
@@ -83,13 +84,13 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                         r.isNum = false;
                     }
                 }
-                readings.push_back(r);
+                set.readings.push_back(r);
             }
 
             // Pass Reading to Handlers            
             listenersMutex.lock();
             for(i=0; i < listeners.size(); ++i){
-                listeners[i]->processReading(t, readings);
+                listeners[i]->processReading(set);
             }
             listenersMutex.unlock();
 

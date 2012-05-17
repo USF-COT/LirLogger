@@ -8,7 +8,6 @@ typedef struct{
     PvInt64 imageCount;
     PvInt64 framesDropped;
     double frameRate;
-    double bandwidth;
 }Spyder3Stats;
 
 class ISpyder3StatsListener{

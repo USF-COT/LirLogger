@@ -22,6 +22,7 @@
 #include "Spyder3Camera.hpp"
 #include "Spyder3TiffWriter.hpp"
 #include "MemoryCameraStatsListener.hpp"
+#include "MemoryEthSensorListener.hpp"
 
 #include "LirSQLiteWriter.hpp"
 
@@ -44,6 +45,7 @@ class LirCommand{
     // Sensor Classes
     vector<EthSensor *> sensors;
     vector<LirSQLiteWriter *> sensorWriters;
+    vector<MemoryEthSensorListener *> sensorMems;
 
     // Parser Functions
     std::map<std::string, boost::function<string (LirCommand*,const string)> > commands;
@@ -67,6 +69,7 @@ class LirCommand{
         bool stopLogger();
         string parseCommand(const string message);
         Spyder3Stats getCameraStats();
+        vector<EthSensorReadingSet> getSensorSets();
 };
 
 #endif

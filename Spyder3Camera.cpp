@@ -220,7 +220,6 @@ void Spyder3Camera::operator() (){
                 Spyder3Stats stats;
                 lStreamParams->GetIntegerValue( "ImagesCount", stats.imageCount);
                 lStreamParams->GetFloatValue( "AcquisitionRateAverage",stats.frameRate);
-                lStreamParams->GetFloatValue( "BandwidthAverage", stats.bandwidth);
                 lStreamParams->GetIntegerValue("PipelineBlocksDropped", stats.framesDropped);
 
                 statsListenerMutex.lock();
