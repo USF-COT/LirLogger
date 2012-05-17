@@ -6,6 +6,7 @@ SRC_CPPS = \
            EthSensor.cpp \
            LirSQLiteWriter.cpp \
            LirTCPServer.cpp \
+           MemoryCameraStatsListener.cpp \
 
 EXEC     = LirLogger
 

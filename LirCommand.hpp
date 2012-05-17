@@ -21,7 +21,7 @@
 #include "EthSensor.hpp"
 #include "Spyder3Camera.hpp"
 #include "Spyder3TiffWriter.hpp"
-//#include "Spyder3FrameTracker.hpp"
+#include "MemoryCameraStatsListener.hpp"
 
 #include "LirSQLiteWriter.hpp"
 
@@ -37,6 +37,8 @@ class LirCommand{
     // Camera and Logger Classes
     Spyder3Camera* camera;
     Spyder3TiffWriter* writer;
+    MemoryCameraStatsListener* camStats;
+    
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes
@@ -64,6 +66,7 @@ class LirCommand{
         bool startLogger();
         bool stopLogger();
         string parseCommand(const string message);
+        Spyder3Stats getCameraStats();
 };
 
 #endif

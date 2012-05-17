@@ -163,10 +163,16 @@ string LirCommand::parseCommand(const string command){
 void LirCommand::ConnectListeners(){
     this->writer = new Spyder3TiffWriter(this->outputFolder);
     this->camera->addListener(this->writer);
+    this->camStats = new MemoryCameraStatsListener();
+    this->camera->addStatsListener(this->camStats);
     for(unsigned int i=0; i < sensors.size(); ++i){
         LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], string(this->outputFolder));
         sensorWriters.push_back(sensorWriter);
     }
+}
+
+Spyder3Stats LirCommand::getCameraStats(){
+    return this->camStats->getCurrentStats();
 }
 
 // Taken from http://stackoverflow.com/questions/5612182/convert-string-with-explicit-escape-sequence-into-relative-character

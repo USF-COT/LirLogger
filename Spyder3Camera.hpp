@@ -6,6 +6,7 @@
 #include <vector>
 #include <boost/thread.hpp>
 #include "ISpyder3Listener.hpp"
+#include "ISpyder3StatsListener.hpp"
 
 using namespace std;
 
@@ -15,10 +16,12 @@ private:
     char* MAC;
     unsigned int pipelineBufferMax;
     vector<ISpyder3Listener*> listeners;
+    vector<ISpyder3StatsListener*> statsListeners;
     
     boost::thread* camThread;
     boost::mutex runMutex;
     boost::mutex listenersMutex;
+    boost::mutex statsListenerMutex;
     bool isRunning;
 
 public:
@@ -29,6 +32,7 @@ public:
     unsigned int getNumBuffers();
     
     void addListener(ISpyder3Listener *l);
+    void addStatsListener(ISpyder3StatsListener *l);
     bool start();
     bool stop();
 

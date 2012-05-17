@@ -1,7 +1,10 @@
 
 #include <string>
-#include <iostream>
+#include <sstream>
 #include <syslog.h>
+
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include "LirCommand.hpp"
 #include "LirTCPServer.hpp"
@@ -12,10 +15,13 @@ tcp::socket& tcp_connection::socket(){
     return socket_;
 }
 
-tcp_connection::tcp_connection(boost::asio::io_service& io_service):socket_(io_service){}
+tcp_connection::tcp_connection(boost::asio::io_service& io_service):socket_(io_service),statsWriteTimer(io_service){
+}
 
 void tcp_connection::start(){
     syslog(LOG_DAEMON|LOG_INFO,"New client connected.");
+
+    // Setup client line write handler
     boost::asio::async_read_until(socket_,buf,"\n",boost::bind(&tcp_connection::handle_line,shared_from_this(),boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
 }
 
@@ -29,17 +35,61 @@ void tcp_connection::handle_line(const boost::system::error_code& error, size_t 
     string key = line.substr(0,line.find_first_of(" \n\r"));
 
     if(key.compare("listen") == 0){
-
+        setupStatsTimer(line);
     } else if(key.compare("silence") == 0){
-        
+        statsTimerMutex.lock();
+        writingStats = false;
+        statsTimerMutex.unlock();
     } else if(key.compare("exit") == 0){
         return;
+    } else {
+        string response = cmd->parseCommand(line);
+        socket_.write_some(boost::asio::buffer(response));
     }
-    string response = cmd->parseCommand(line);
-
-    socket_.write_some(boost::asio::buffer(response));
 
     boost::asio::async_read_until(socket_,buf,"\n",boost::bind(&tcp_connection::handle_line,shared_from_this(),boost::asio::placeholders::error,boost::asio::placeholders::bytes_transferred));
+}
+
+void tcp_connection::setupStatsTimer(const string line){
+    vector<string> tokens;
+    split(tokens, line, boost::is_any_of(" "), boost::token_compress_on);
+    
+    statsTimerMutex.lock();
+    statsWriteIntervalSeconds = 1;
+    if(tokens.size() > 1){
+        string lastElement = tokens.back();
+        try{
+            statsWriteIntervalSeconds = boost::lexical_cast<unsigned int>(lastElement);
+        } catch (boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR, "Cannot parse last argument in listen command string (%s) as number.",lastElement.c_str());
+        }
+    }
+    writingStats = 1;
+    statsTimerMutex.unlock();
+    
+    // Get the stats listener running
+    statsWriteTimer.expires_from_now(boost::posix_time::seconds(statsWriteIntervalSeconds));
+    statsWriteTimer.async_wait(boost::bind(&tcp_connection::writeStats,shared_from_this()));
+}
+
+void tcp_connection::writeStats(){
+    LirCommand *cmd = LirCommand::Instance();
+    Spyder3Stats stats = cmd->getCameraStats();
+
+    stringstream ss;
+    ss << "CAM:" << stats.imageCount << "," << stats.framesDropped << "," << stats.frameRate << "," << stats.bandwidth << "\r\n";
+
+    socket_.write_some(boost::asio::buffer(ss.str()));
+
+    // Run again?
+    bool isRunning;
+    statsTimerMutex.lock();
+    isRunning = writingStats;
+    statsTimerMutex.unlock();
+    if(isRunning){
+        statsWriteTimer.expires_from_now(boost::posix_time::seconds(statsWriteIntervalSeconds));
+        statsWriteTimer.async_wait(boost::bind(&tcp_connection::writeStats,shared_from_this()));
+    }
 }
 
 

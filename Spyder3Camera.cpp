@@ -72,6 +72,12 @@ void Spyder3Camera::addListener(ISpyder3Listener *l){
     listenersMutex.unlock();
 }
 
+void Spyder3Camera::addStatsListener(ISpyder3StatsListener *l){
+    statsListenerMutex.lock();
+    statsListeners.push_back(l);
+    statsListenerMutex.unlock();
+}
+
 void Spyder3Camera::operator() (){
     bool running;
 
@@ -207,6 +213,21 @@ void Spyder3Camera::operator() (){
                     listeners[i]->processFrame(lWidth, lHeight, lBuffer);
                 }
                 listenersMutex.unlock();
+            }
+
+            // If there are stats listeners, send them the current statistics
+            if(statsListeners.size() > 0){
+                Spyder3Stats stats;
+                lStreamParams->GetIntegerValue( "ImagesCount", stats.imageCount);
+                lStreamParams->GetFloatValue( "AcquisitionRateAverage",stats.frameRate);
+                lStreamParams->GetFloatValue( "BandwidthAverage", stats.bandwidth);
+                lStreamParams->GetIntegerValue("PipelineBlocksDropped", stats.framesDropped);
+
+                statsListenerMutex.lock();
+                for(unsigned int i=0; i < statsListeners.size(); ++i){
+                    statsListeners[i]->processStats(&stats);
+                }
+                statsListenerMutex.unlock();
             }
         }
 

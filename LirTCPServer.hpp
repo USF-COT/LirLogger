@@ -6,6 +6,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/asio.hpp>
+#include <boost/thread.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -28,9 +29,16 @@ private:
     tcp_connection(boost::asio::io_service& io_service);
 
     void handle_line(const boost::system::error_code& error, size_t bytes_transferred);
+    void setupStatsTimer(const string line);
+    void writeStats();
 
     tcp::socket socket_;
     boost::asio::streambuf buf;
+
+    boost::mutex statsTimerMutex;
+    bool writingStats;
+    unsigned int statsWriteIntervalSeconds;
+    boost::asio::deadline_timer statsWriteTimer;
 };
 
 class LirTCPServer{
