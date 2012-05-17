@@ -18,14 +18,14 @@
 #include "Spyder3Camera.hpp"
 #include "LirTCPServer.hpp"
 
-/*
 volatile sig_atomic_t daemonrunning=1;
+boost::asio::io_service io_service;
 
 void catch_term(int sig){
     daemonrunning=0;
+    io_service.stop();
     return;
 }
-*/
 
 int main(){
     printf("Starting Lir Logger.  All subsequent messages will be appended to system log.\n");
@@ -45,15 +45,18 @@ int main(){
     syslog(LOG_DAEMON|LOG_INFO,"Config loaded.");
 
     // Setup SIGTERM Handler
-    // signal(SIGTERM,catch_term); 
+    signal(SIGTERM,catch_term); 
+
+    LirTCPServer server(io_service);
 
     // Setup server socket
-    try{
-        boost::asio::io_service io_service;
-        LirTCPServer server(io_service);
-        io_service.run();
-    } catch (std::exception& e){
-        syslog(LOG_DAEMON|LOG_ERR,e.what());
+    while(daemonrunning){
+        // Keep io_service running through errors if daemonrunning is still true
+        try{
+            io_service.run();
+        } catch (std::exception& e){
+            syslog(LOG_DAEMON|LOG_ERR,e.what());
+        }
     }
     com->stopLogger(); // Just in case it was left running
     syslog(LOG_DAEMON|LOG_INFO,"Daemon Exited Successfully.");
