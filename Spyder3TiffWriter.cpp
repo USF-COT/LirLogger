@@ -5,7 +5,7 @@ extern "C"{
 #include <tiffio.h>
 }
 
-#include <string.h>
+#include <string>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -14,28 +14,34 @@ extern "C"{
 
 #define MAXFILESPERFOLDER 1000 // Files to write to a folder before rolling over to the next folder
 
-Spyder3TiffWriter::Spyder3TiffWriter(char* _outputFolder){
-    outputFolderPath = (char*) malloc(sizeof(char)*(strlen(_outputFolder)+1));
-    strncpy(outputFolderPath,_outputFolder,strlen(_outputFolder)+1);
+bool Spyder3TiffWriter::setNextFolderPath(){
+    string fullPath;
 
-    fullPath = (char*) malloc(sizeof(char)*(strlen(_outputFolder)+1024));
+    idMutex.lock();
+    frameID=0;
+    do{
+        stringstream path;
+        path << outputFolderPath << "/" << ++folderID;
+        fullPath = path.str();
+        syslog(LOG_DAEMON|LOG_INFO,"Trying %s folder.",fullPath.c_str());
+    } while(mkdir(fullPath.c_str(),0775) != 0 && folderID < ULONG_MAX);
+    idMutex.unlock();
 
+    if(folderID == ULONG_MAX){
+        return false;
+    }
+
+    return true;
+}
+
+Spyder3TiffWriter::Spyder3TiffWriter(string _outputFolder) : outputFolderPath(_outputFolder){
     folderID = 0;
     frameID = 0;
 
-    idMutex.lock();
-    do{
-        sprintf(fullPath,"%s/%d",outputFolderPath,++folderID);
-    } while(mkdir(fullPath,0775) != 0 && folderID < ULONG_MAX);
-    idMutex.unlock();
-
-    if(folderID == ULONG_MAX)
-        syslog(LOG_DAEMON|LOG_ERR, "Unable to log in this output folder because %d folders already found.",ULONG_MAX);
+    setNextFolderPath();
 }
 
 Spyder3TiffWriter::~Spyder3TiffWriter(){
-    free(outputFolderPath);
-    free(fullPath);
 }
 
 std::pair<unsigned long, unsigned long> Spyder3TiffWriter::getFolderFrameIDs(){
@@ -49,28 +55,19 @@ std::pair<unsigned long, unsigned long> Spyder3TiffWriter::getFolderFrameIDs(){
 
 void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
     if(frameID >= MAXFILESPERFOLDER){
-        frameID=0;
-
-        unsigned long lastFolderID = folderID-1;
-        idMutex.lock();
-        do{
-            sprintf(fullPath,"%s/%d",outputFolderPath,++folderID);
-        } while(mkdir(fullPath,0775) != 0 && folderID < ULONG_MAX);
-
-        if(folderID == ULONG_MAX){
-            syslog(LOG_DAEMON|LOG_ERR, "Unable to log in this output folder because %d folders already found.",ULONG_MAX);
+        if(!setNextFolderPath()){
+            syslog(LOG_DAEMON|LOG_ERR, "SEVERE: Cannot log any more frames, maximum number of folders and frames reached.");
             return;
         }
-        idMutex.unlock();
     }
 
-    fullPath[0] = '\0';
+    stringstream path;
     idMutex.lock();
-    sprintf(fullPath,"%s/%d/%d-%d.tif",outputFolderPath,folderID,folderID,++frameID);
+    path << outputFolderPath << folderID << folderID << ++frameID;
     idMutex.unlock();
     //syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",fullPath);
 
-    TIFF *out = TIFFOpen(fullPath,"w");
+    TIFF *out = TIFFOpen(path.str().c_str(),"w");
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
     TIFFSetField(out, TIFFTAG_IMAGELENGTH, lHeight);
     TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 1);

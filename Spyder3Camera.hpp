@@ -33,6 +33,8 @@ public:
     
     void addListener(ISpyder3Listener *l);
     void addStatsListener(ISpyder3StatsListener *l);
+    void clearListeners();
+
     bool start();
     bool stop();
 

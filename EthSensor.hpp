@@ -49,6 +49,7 @@ public:
     bool Connect();
     bool Disconnect();
     void addListener(IEthSensorListener *l);
+    void clearListeners();
     bool isRunning();
     void operator() ();
     string getName();

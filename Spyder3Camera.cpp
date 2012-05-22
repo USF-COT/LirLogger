@@ -78,6 +78,16 @@ void Spyder3Camera::addStatsListener(ISpyder3StatsListener *l){
     statsListenerMutex.unlock();
 }
 
+void Spyder3Camera::clearListeners(){
+    listenersMutex.lock();
+    listeners.clear();
+    listenersMutex.unlock();
+
+    statsListenerMutex.lock();
+    statsListeners.clear();
+    statsListenerMutex.unlock();
+}
+
 void Spyder3Camera::operator() (){
     bool running;
 

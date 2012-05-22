@@ -33,7 +33,11 @@ class LirCommand{
 
     boost::mutex commandMutex;
     bool running;
-    char* outputFolder;
+
+    // Output folder defaults
+    string outputFolder;
+    string deployment;
+    unsigned int stationID;
 
     // Camera and Logger Classes
     Spyder3Camera* camera;
@@ -56,10 +60,13 @@ class LirCommand{
         LirCommand& operator=(LirCommand const*){};
         static LirCommand* m_pInstance;
         void ConnectListeners();
+        void ClearListeners();
 
         string receiveStatusCommand(const string message);
         string receiveStartCommand(const string message);
         string receiveStopCommand(const string message);
+        string receiveSetDeploymentCommand(const string message);
+        void findLastDeploymentStation();
 
     public:
         static LirCommand* Instance();

@@ -6,6 +6,10 @@
 
 #include "LirCommand.hpp"
 
+#include <dirent.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <syslog.h>
 #include <iostream>
 #include <string>
@@ -14,6 +18,7 @@
 #include <boost/foreach.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <xercesc/util/XMLUni.hpp>
 #include <xercesc/util/PlatformUtils.hpp>
@@ -59,13 +64,15 @@ class ConfigXMLErrorHandler: public ErrorHandler
 LirCommand* LirCommand::m_pInstance = NULL;
 
 LirCommand::LirCommand() : running(false),camera(NULL){
+    this->deployment = "default";
+    this->stationID = 0;
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
     commands["status"] = &LirCommand::receiveStatusCommand;
+    commands["deployment"] = &LirCommand::receiveSetDeploymentCommand;
 }
 
 LirCommand::~LirCommand(){
-    if(outputFolder) free(outputFolder);
 }
 
 LirCommand* LirCommand::Instance()
@@ -120,6 +127,7 @@ string LirCommand::receiveStartCommand(const string command){
 bool LirCommand::startLogger(){
     if(!this->running){
         commandMutex.lock();
+        this->ConnectListeners();
         if(this->camera) this->camera->start();
         for(unsigned int i=0; i < sensors.size(); ++i){
             sensors[i]->Connect();
@@ -142,6 +150,7 @@ bool LirCommand::stopLogger(){
             sensors[i]->Disconnect();
         }
         this->running = false;
+        this->ClearListeners();
         commandMutex.unlock();
     }
 }
@@ -157,16 +166,52 @@ string LirCommand::parseCommand(const string command){
     }
 }
 
+string LirCommand::receiveSetDeploymentCommand(const string command){
+    vector<string> tokens;
+    boost::escaped_list_separator<char> sep('\\',' ','\"');
+    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
+    BOOST_FOREACH(string t, tok){
+        tokens.push_back(t);
+    }
+    
+    if(tokens.size() >= 3 && tokens[1].size() > 0 && tokens[2].size() > 0){
+        this->deployment = string(tokens[1]);
+        try{
+            this->stationID = boost::lexical_cast<unsigned int>(tokens[2]);
+        } catch (boost::bad_lexical_cast const &){
+            this->stationID = 0;
+        }
+
+        // Reset listeners
+        commandMutex.lock();
+        this->ClearListeners();
+        this->ConnectListeners();
+        commandMutex.unlock();
+    } 
+}
 
 // Config parsing functions follow
+void LirCommand::ClearListeners(){
+    this->camera->clearListeners();
+    delete this->writer;
+    delete this->camStats;
+    for(unsigned int i=0; i < sensors.size(); ++i){
+        sensors[i]->clearListeners();
+        delete sensorWriters[i];
+        delete sensorMems[i];
+    }
+}
 
 void LirCommand::ConnectListeners(){
-    this->writer = new Spyder3TiffWriter(this->outputFolder);
+    stringstream ss;
+    ss << this->outputFolder << "/" << this->deployment << "-" << this->stationID;
+    string fullPath = ss.str();
+    this->writer = new Spyder3TiffWriter(fullPath);
     this->camera->addListener(this->writer);
     this->camStats = new MemoryCameraStatsListener();
     this->camera->addStatsListener(this->camStats);
     for(unsigned int i=0; i < sensors.size(); ++i){
-        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], string(this->outputFolder));
+        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], fullPath);
         sensorWriters.push_back(sensorWriter);
 
         MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
@@ -176,14 +221,24 @@ void LirCommand::ConnectListeners(){
 }
 
 Spyder3Stats LirCommand::getCameraStats(){
-    return this->camStats->getCurrentStats();
+    Spyder3Stats retVal;
+
+    commandMutex.lock();
+    retVal = this->camStats->getCurrentStats();
+    commandMutex.unlock();
+
+    return retVal;
 }
 
 vector<EthSensorReadingSet> LirCommand::getSensorSets(){
     vector<EthSensorReadingSet> retVal;
+
+    commandMutex.lock();
     for(unsigned int i=0; i < sensorMems.size(); ++i){
         retVal.push_back(sensorMems[i]->getCurrentReading());
     }
+    commandMutex.unlock();
+
     return retVal;
 }
 
@@ -212,6 +267,54 @@ string unescape(const string& s)
     }
 
     return res;
+}
+
+void LirCommand::findLastDeploymentStation(){
+    DIR* dp;
+    struct dirent *dir;
+    struct stat fileStats;
+
+    time_t time = 0;
+    time_t maxTime = 0;
+    string fileName = string();
+
+    if((dp = opendir(this->outputFolder.c_str())) == NULL){
+        syslog(LOG_DAEMON|LOG_ERR,"Unable to open directory %s.",this->outputFolder.c_str());
+        return;
+    }
+
+    while ((dir = readdir(dp)) != NULL){
+        if(stat(dir->d_name,&fileStats) == 0){
+            time = fileStats.st_mtime;
+            if(time > maxTime){
+                maxTime = time;
+                fileName = string(dir->d_name);
+            }
+        }
+    }
+
+    vector<string> tokens;
+    if(fileName.size() > 0){
+        syslog(LOG_DAEMON|LOG_INFO,"Found %s to be the latest directory.",fileName.c_str());
+        split(tokens, fileName, boost::is_any_of("-"), boost::token_compress_on);
+        if(tokens.size() > 1){
+            this->deployment = string(tokens[0]);
+            this->stationID = 0;
+            try{
+                this->stationID = boost::lexical_cast<unsigned int>(tokens[1]);
+                this->stationID++; // Move to next station ID
+            } catch ( boost::bad_lexical_cast const & ) {
+                syslog(LOG_DAEMON|LOG_ERR,"Unable to cast deployment ID portion of directory to unsigned int.  Assuming 0.");
+            }
+            syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s-%d",this->deployment.c_str(),this->stationID);
+        } else {
+            syslog(LOG_DAEMON|LOG_ERR,"Unable to parse directory correctly.");
+        }
+    } else {
+        this->deployment = string("default");
+        this->stationID = 0;
+        syslog(LOG_DAEMON|LOG_INFO,"No deployment directory found, using name %s-%d",this->deployment.c_str(),this->stationID);
+    }
 }
 
 EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
@@ -298,9 +401,9 @@ bool LirCommand::loadConfig(char* configPath){
                 if(outputFolderEl && outputFolderEl->getLength() > 0){
                     DOMNode* node = outputFolderEl->item(0);
                     char* text = XMLString::transcode(node->getTextContent());
-                    this->outputFolder = (char*)malloc(sizeof(char)*(strlen(text)+1));
-                    strncpy(this->outputFolder,text,strlen(text)+1);
-                    syslog(LOG_DAEMON|LOG_INFO,"Output Folder is: %s",this->outputFolder);
+                    this->outputFolder = string(text);
+                    syslog(LOG_DAEMON|LOG_INFO,"Output Folder is: %s",this->outputFolder.c_str());
+                    findLastDeploymentStation();
                 }
                 DOMNodeList* camNode = doc->getElementsByTagNameNS(XMLString::transcode("*"),XMLString::transcode("GigECamera"));
                 if(camNode && camNode->getLength() > 0){
@@ -365,9 +468,6 @@ bool LirCommand::loadConfig(char* configPath){
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "Cannot reconfigure a running command instance.");
     }
-
-    this->ConnectListeners();
-
     return parsed;
 }
 

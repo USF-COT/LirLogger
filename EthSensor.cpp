@@ -129,6 +129,15 @@ void EthSensor::addListener(IEthSensorListener *l){
     listenersMutex.unlock();
 }
 
+void EthSensor::clearListeners(){
+    listenersMutex.lock();
+    BOOST_FOREACH(IEthSensorListener* l, listeners){
+        l->sensorStopping();
+    }
+    listeners.clear();
+    listenersMutex.unlock();
+}
+
 void EthSensor::operator() (){
     listenersMutex.lock();
     BOOST_FOREACH(IEthSensorListener* l, listeners){
