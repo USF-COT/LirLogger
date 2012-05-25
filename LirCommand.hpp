@@ -67,6 +67,8 @@ class LirCommand{
         string receiveStopCommand(const string message);
         string receiveSetDeploymentCommand(const string message);
         void findLastDeploymentStation();
+        string generateFolderName();
+        void setListenersOutputFolder();
 
     public:
         static LirCommand* Instance();

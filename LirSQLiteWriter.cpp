@@ -7,16 +7,17 @@
 #include <iostream>
 #include <sstream>
 
-LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor){
+void LirSQLiteWriter::initDatabase(string outputFolder){
     char* errMsg;
+    pathMutex.lock();    
+    if(db) sqlite3_close(db);
 
-    dbPath = outputDirectory + "/data.db";
-    
-    // Make CREATE DATABASE IF NOT EXISTS statement for specified sensor
+    dbPath = outputFolder + "/data.db";
+    syslog(LOG_DAEMON|LOG_INFO,"SQLite output path: %s",dbPath.c_str());
 
     // Create a table based on this sensor's field descriptors
     sqlite3_open(dbPath.c_str(), &db);
-    
+
     stringstream ss;
     stringstream is;
     stringstream qMarks;
@@ -30,7 +31,7 @@ LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sens
         is << ", " << fields[i].name;
         qMarks << ",?";
     }
-    ss << ")"; // Close column descriptions 
+    ss << ")"; // Close column descriptions
     is << ")";
     qMarks << ")";
 
@@ -45,7 +46,12 @@ LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sens
     }
 
     sqlite3_close(db);
+    db = NULL;
+    pathMutex.unlock();
+}
 
+LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor){
+    initDatabase(outputDirectory);
     sensor->addListener(this);
 }
 
@@ -54,10 +60,20 @@ LirSQLiteWriter::~LirSQLiteWriter(){
 
 void LirSQLiteWriter::sensorStarting(){
     syslog(LOG_DAEMON|LOG_INFO, "Opening sqlite3 database to %s",dbPath.c_str());
+    pathMutex.lock();
     sqlite3_open(dbPath.c_str(),&db);
+    pathMutex.unlock();
+}
+
+void LirSQLiteWriter::changeFolder(string outputFolder){
+    initDatabase(outputFolder);
 }
 
 void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
+    pathMutex.lock();
+    if(!db) // If the database is not open, try to open it again
+        sensorStarting();
+
     if(set.readings.size() >= fields.size()){
         pair<unsigned long,unsigned long> frameIDs = this->camWriter->getFolderFrameIDs();
         sqlite3_stmt* pStmt = NULL;
@@ -92,9 +108,13 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "Fewer readings than expected (%d) received (%d) for SQLiteWriter.  Disregarding this reading.", fields.size(), set.readings.size());
     }
+    pathMutex.unlock();
 }
 
 void LirSQLiteWriter::sensorStopping(){
+    pathMutex.lock();
     if(db) sqlite3_close(db);
+    db = NULL;
+    pathMutex.unlock();
     syslog(LOG_DAEMON|LOG_INFO, "Sqlite3 database @ %s closed.",dbPath.c_str());
 }

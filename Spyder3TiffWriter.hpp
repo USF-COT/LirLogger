@@ -12,10 +12,10 @@ using namespace std;
 class Spyder3TiffWriter : public ISpyder3Listener{
     private:
         string outputFolderPath;
-        unsigned long folderID;
-        unsigned long frameID;
 
         boost::mutex idMutex;
+        unsigned long folderID;
+        unsigned long frameID;
 
         bool setNextFolderPath();
     
@@ -24,6 +24,7 @@ class Spyder3TiffWriter : public ISpyder3Listener{
         ~Spyder3TiffWriter();
         std::pair<unsigned long, unsigned long> getFolderFrameIDs();
         virtual void processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
+        void changeFolder(string folderPath);
 };
 
 #endif

@@ -12,10 +12,14 @@ extern "C"{
 #include <syslog.h>
 #include <limits.h>
 
+#include <boost/filesystem.hpp>
+
 #define MAXFILESPERFOLDER 1000 // Files to write to a folder before rolling over to the next folder
 
 bool Spyder3TiffWriter::setNextFolderPath(){
     string fullPath;
+
+    bool created;
 
     idMutex.lock();
     frameID=0;
@@ -24,8 +28,9 @@ bool Spyder3TiffWriter::setNextFolderPath(){
         path << outputFolderPath << "/" << ++folderID;
         fullPath = path.str();
         syslog(LOG_DAEMON|LOG_INFO,"Trying %s folder.",fullPath.c_str());
-    } while(mkdir(fullPath.c_str(),0775) != 0 && folderID < ULONG_MAX);
-    idMutex.unlock();
+        created = boost::filesystem::create_directories(fullPath);
+    } while(!created && folderID < ULONG_MAX);
+    idMutex.unlock();    
 
     if(folderID == ULONG_MAX){
         return false;
@@ -42,6 +47,16 @@ Spyder3TiffWriter::Spyder3TiffWriter(string _outputFolder) : outputFolderPath(_o
 }
 
 Spyder3TiffWriter::~Spyder3TiffWriter(){
+}
+
+void Spyder3TiffWriter::changeFolder(string folderPath){
+    idMutex.lock();
+    outputFolderPath = folderPath;
+    this->folderID = 0;
+    this->frameID = 0;
+    idMutex.unlock();
+
+    setNextFolderPath();
 }
 
 std::pair<unsigned long, unsigned long> Spyder3TiffWriter::getFolderFrameIDs(){

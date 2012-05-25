@@ -15,7 +15,7 @@ EXEC     = LirLogger
 #CFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))
 #CPPFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))
 #LDFLAGS+=$(shell pkg-config --libs $(FFMPEG_LIBS))
-LDFLAGS+=-ltiff -lxerces-c -lboost_thread -lboost_system -lsqlite3
+LDFLAGS+=-g -ltiff -lxerces-c -lboost_thread -lboost_system -lboost_filesystem -lsqlite3
 CPPFLAGS+=-D__STDC_CONSTANT_MACROS 
 
 include sample.Makefile

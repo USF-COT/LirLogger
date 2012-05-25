@@ -113,9 +113,9 @@ string LirCommand::receiveStatusCommand(const string command){
     }
 
     string resString = response.str();
-    
+
     commandMutex.unlock();
-    
+
     return resString;
 }
 
@@ -127,7 +127,6 @@ string LirCommand::receiveStartCommand(const string command){
 bool LirCommand::startLogger(){
     if(!this->running){
         commandMutex.lock();
-        this->ConnectListeners();
         if(this->camera) this->camera->start();
         for(unsigned int i=0; i < sensors.size(); ++i){
             sensors[i]->Connect();
@@ -171,23 +170,21 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
     boost::escaped_list_separator<char> sep('\\',' ','\"');
     boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
     BOOST_FOREACH(string t, tok){
+        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
         tokens.push_back(t);
     }
-    
+
     if(tokens.size() >= 3 && tokens[1].size() > 0 && tokens[2].size() > 0){
         this->deployment = string(tokens[1]);
-        try{
-            this->stationID = boost::lexical_cast<unsigned int>(tokens[2]);
-        } catch (boost::bad_lexical_cast const &){
-            this->stationID = 0;
-        }
+        this->stationID = 0;
+        stringstream ss;
+        ss << tokens[2];
+        ss >> this->stationID;
 
-        // Reset listeners
-        commandMutex.lock();
-        this->ClearListeners();
-        this->ConnectListeners();
-        commandMutex.unlock();
+        // Pass new folder to listeners
+        setListenersOutputFolder();
     } 
+    return string();
 }
 
 // Config parsing functions follow
@@ -202,10 +199,22 @@ void LirCommand::ClearListeners(){
     }
 }
 
-void LirCommand::ConnectListeners(){
+string LirCommand::generateFolderName(){
     stringstream ss;
     ss << this->outputFolder << "/" << this->deployment << "-" << this->stationID;
-    string fullPath = ss.str();
+    return ss.str();
+}
+
+void LirCommand::setListenersOutputFolder(){
+    string fullPath = this->generateFolderName();
+    if(this->writer) this->writer->changeFolder(fullPath);
+    for(unsigned int i=0; i < sensors.size(); ++i){
+        sensorWriters[i]->changeFolder(fullPath);
+    }
+}
+
+void LirCommand::ConnectListeners(){
+    string fullPath = this->generateFolderName();
     this->writer = new Spyder3TiffWriter(fullPath);
     this->camera->addListener(this->writer);
     this->camStats = new MemoryCameraStatsListener();
@@ -284,8 +293,12 @@ void LirCommand::findLastDeploymentStation(){
     }
 
     while ((dir = readdir(dp)) != NULL){
-        if(stat(dir->d_name,&fileStats) == 0){
+        stringstream ss;
+        ss << outputFolder << "/" << string(dir->d_name);
+        string tempPath = ss.str();
+        if(stat(tempPath.c_str(),&fileStats) == 0){
             time = fileStats.st_mtime;
+            syslog(LOG_DAEMON|LOG_INFO,"Found file %s with time %d",tempPath.c_str(),time);
             if(time > maxTime){
                 maxTime = time;
                 fileName = string(dir->d_name);
@@ -299,13 +312,10 @@ void LirCommand::findLastDeploymentStation(){
         split(tokens, fileName, boost::is_any_of("-"), boost::token_compress_on);
         if(tokens.size() > 1){
             this->deployment = string(tokens[0]);
-            this->stationID = 0;
-            try{
-                this->stationID = boost::lexical_cast<unsigned int>(tokens[1]);
-                this->stationID++; // Move to next station ID
-            } catch ( boost::bad_lexical_cast const & ) {
-                syslog(LOG_DAEMON|LOG_ERR,"Unable to cast deployment ID portion of directory to unsigned int.  Assuming 0.");
-            }
+            stringstream ss;
+            ss << tokens[1];
+            ss >> this->stationID;
+            this->stationID++; // Move to next station ID
             syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s-%d",this->deployment.c_str(),this->stationID);
         } else {
             syslog(LOG_DAEMON|LOG_ERR,"Unable to parse directory correctly.");
@@ -463,6 +473,8 @@ bool LirCommand::loadConfig(char* configPath){
         delete parser;
         delete eh;
         XMLPlatformUtils::Terminate();
+
+        this->ConnectListeners();
 
         commandMutex.unlock();
     } else {
