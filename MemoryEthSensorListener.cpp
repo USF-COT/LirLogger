@@ -2,7 +2,10 @@
 #include <utility>
 #include "MemoryEthSensorListener.hpp"
 
-MemoryEthSensorListener::MemoryEthSensorListener(){}
+MemoryEthSensorListener::MemoryEthSensorListener(){
+    currentSet.time = time(NULL);
+    currentSet.sensorName = string("No Reading");
+}
 
 MemoryEthSensorListener::~MemoryEthSensorListener(){
 }

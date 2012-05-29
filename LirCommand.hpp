@@ -60,7 +60,6 @@ class LirCommand{
         LirCommand& operator=(LirCommand const*){};
         static LirCommand* m_pInstance;
         void ConnectListeners();
-        void ClearListeners();
 
         string receiveStatusCommand(const string message);
         string receiveStartCommand(const string message);

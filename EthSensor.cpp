@@ -21,6 +21,12 @@ EthSensor::~EthSensor(){
     this->Disconnect(); // Run this in case the sensor is left connected
 }
 
+void EthSensor::setRunning(bool value){
+    runMutex.lock();
+    this->running = value;
+    runMutex.unlock();
+}
+
 bool EthSensor::isRunning(){
     bool retVal;
     runMutex.lock();
@@ -32,7 +38,6 @@ bool EthSensor::isRunning(){
 
 bool EthSensor::Connect(){
     if(!this->isRunning()){
-        running = true;
         syslog(LOG_DAEMON|LOG_INFO,"Connecting %s sensor @ %s:%d",name.c_str(),IP.c_str(),port);
         char portString[16];
         snprintf(portString,15,"%u",port);
@@ -46,6 +51,7 @@ bool EthSensor::Connect(){
             if(startChars.length() > 0) readSock->write_some(boost::asio::buffer(startChars));
             boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             readThread = new boost::thread(boost::ref(*this));
+            this->setRunning(true);
         } catch (std::exception& e){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
         }
@@ -107,9 +113,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
 
 bool EthSensor::Disconnect(){
     if(this->isRunning()){
-        runMutex.lock();
-        running = false;
-        runMutex.unlock();
+        this->setRunning(false);
 
         try{
             if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));

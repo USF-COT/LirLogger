@@ -71,8 +71,8 @@ void LirSQLiteWriter::changeFolder(string outputFolder){
 
 void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
     pathMutex.lock();
-    if(!db) // If the database is not open, try to open it again
-        sensorStarting();
+    if(db == NULL) // If the database is not open, try to open it again
+        sqlite3_open(dbPath.c_str(),&db);
 
     if(set.readings.size() >= fields.size()){
         pair<unsigned long,unsigned long> frameIDs = this->camWriter->getFolderFrameIDs();

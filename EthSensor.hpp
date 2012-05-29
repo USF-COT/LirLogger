@@ -41,6 +41,7 @@ private:
 
     boost::thread* readThread;
 
+    void setRunning(bool);
     void parseLine(const boost::system::error_code& ec, size_t bytes_transferred);
 
 public:

@@ -92,7 +92,7 @@ string LirCommand::receiveStatusCommand(const string command){
     response << "SYSTEM " << status << "\r\n";
 
     // Compose output type
-    response << "All files being written to " << this->outputFolder << "\r\n";
+    response << "All files being written to " << this->generateFolderName() << "\r\n";
 
     // Compose camera status
     if(this->camera){
@@ -149,7 +149,6 @@ bool LirCommand::stopLogger(){
             sensors[i]->Disconnect();
         }
         this->running = false;
-        this->ClearListeners();
         commandMutex.unlock();
     }
 }
@@ -188,17 +187,6 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
 }
 
 // Config parsing functions follow
-void LirCommand::ClearListeners(){
-    this->camera->clearListeners();
-    delete this->writer;
-    delete this->camStats;
-    for(unsigned int i=0; i < sensors.size(); ++i){
-        sensors[i]->clearListeners();
-        delete sensorWriters[i];
-        delete sensorMems[i];
-    }
-}
-
 string LirCommand::generateFolderName(){
     stringstream ss;
     ss << this->outputFolder << "/" << this->deployment << "-" << this->stationID;
@@ -207,7 +195,9 @@ string LirCommand::generateFolderName(){
 
 void LirCommand::setListenersOutputFolder(){
     string fullPath = this->generateFolderName();
+    syslog(LOG_DAEMON|LOG_INFO,"Changing tiff writer path.");
     if(this->writer) this->writer->changeFolder(fullPath);
+    syslog(LOG_DAEMON|LOG_INFO,"Changing SQLite Writer paths.");
     for(unsigned int i=0; i < sensors.size(); ++i){
         sensorWriters[i]->changeFolder(fullPath);
     }
@@ -220,6 +210,7 @@ void LirCommand::ConnectListeners(){
     this->camStats = new MemoryCameraStatsListener();
     this->camera->addStatsListener(this->camStats);
     for(unsigned int i=0; i < sensors.size(); ++i){
+        syslog(LOG_DAEMON|LOG_INFO,"Adding SQLite Writer.");
         LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], fullPath);
         sensorWriters.push_back(sensorWriter);
 
@@ -315,7 +306,6 @@ void LirCommand::findLastDeploymentStation(){
             stringstream ss;
             ss << tokens[1];
             ss >> this->stationID;
-            this->stationID++; // Move to next station ID
             syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s-%d",this->deployment.c_str(),this->stationID);
         } else {
             syslog(LOG_DAEMON|LOG_ERR,"Unable to parse directory correctly.");

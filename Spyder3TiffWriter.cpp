@@ -30,6 +30,7 @@ bool Spyder3TiffWriter::setNextFolderPath(){
         syslog(LOG_DAEMON|LOG_INFO,"Trying %s folder.",fullPath.c_str());
         created = boost::filesystem::create_directories(fullPath);
     } while(!created && folderID < ULONG_MAX);
+    syslog(LOG_DAEMON|LOG_INFO,"Using %s folder",fullPath.c_str());
     idMutex.unlock();    
 
     if(folderID == ULONG_MAX){
@@ -78,9 +79,9 @@ void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
 
     stringstream path;
     idMutex.lock();
-    path << outputFolderPath << folderID << folderID << ++frameID;
+    path << outputFolderPath << "/" << folderID << "/" << folderID << "-" << ++frameID << ".tif";
     idMutex.unlock();
-    //syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",fullPath);
+    //syslog(LOG_DAEMON|LOG_INFO,"Writing Tiff to File @ %s.",path.str().c_str());
 
     TIFF *out = TIFFOpen(path.str().c_str(),"w");
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
