@@ -210,6 +210,7 @@ void Spyder3Camera::operator() (){
         if ( lResult.IsOK() && lOperationResult.IsOK() )
         {
             // Update Image Resolution In Case It Changes
+            // The type is not always reliably set by the camera so I only use this to set resolution
             if(lBuffer->GetPayloadType() == PvPayloadTypeImage){
                 PvImage *lImage = lBuffer->GetImage();
                 lWidth = lImage->GetWidth();

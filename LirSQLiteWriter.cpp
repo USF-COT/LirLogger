@@ -79,7 +79,7 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
         sqlite3_stmt* pStmt = NULL;
         if(sqlite3_prepare(db,insertStmt.c_str(),1024,&pStmt,NULL) == SQLITE_OK){
             // Place time in the beginning
-            sqlite3_bind_int64(pStmt,1,(int64_t)time);
+            sqlite3_bind_int64(pStmt,1,(int64_t)set.time);
             // Place frame information
             sqlite3_bind_int64(pStmt,2,(int64_t)frameIDs.first);
             sqlite3_bind_int64(pStmt,3,(int64_t)frameIDs.second);

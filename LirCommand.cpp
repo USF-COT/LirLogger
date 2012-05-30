@@ -89,16 +89,17 @@ string LirCommand::receiveStatusCommand(const string command){
 
     // Compose system status
     string status = this->running ? "RUNNING":"STOPPED";
-    response << "SYSTEM " << status << "\r\n";
+    response << status << "\r\n";
 
     // Compose output type
-    response << "All files being written to " << this->generateFolderName() << "\r\n";
+    response << "Deployment:" << this->deployment << "\r\n";
+    response << "Station:" << this->stationID << "\r\n";
 
     // Compose camera status
     if(this->camera){
-        response << "Camera connected @ " << this->camera->getMAC() << " with " << this->camera->getNumBuffers() << " buffers\r\n";
+        response << "Camera:" << this->camera->getMAC() << "," << this->camera->getNumBuffers() << "\r\n";
     } else {
-        response << "Camera NOT CONNECTED\r\n";
+        response << "Camera:ERROR\r\n";
     }
 
     // Compose sensor statuses
