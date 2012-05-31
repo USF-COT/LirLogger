@@ -91,7 +91,7 @@ void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
     TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
     TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
-    TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+    TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
 
     TIFFWriteEncodedStrip(out,0,(void*)lBuffer->GetDataPointer(),lWidth*lHeight);
     TIFFClose(out);
