@@ -1,15 +1,18 @@
-SRC_CPPS = \
-           LirLogger.cpp \
-           LirCommand.cpp \
-           Spyder3Camera.cpp \
-           Spyder3TiffWriter.cpp \
-           EthSensor.cpp \
-           LirSQLiteWriter.cpp \
-           LirTCPServer.cpp \
-           MemoryCameraStatsListener.cpp \
-           MemoryEthSensorListener.cpp \
+#SRC_CPPS = \
+#           LirLogger.cpp \
+#           LirCommand.cpp \
+#           Spyder3Camera.cpp \
+#           Spyder3TiffWriter.cpp \
+#           EthSensor.cpp \
+#           LirSQLiteWriter.cpp \
+#           LirTCPServer.cpp \
+#           MemoryCameraStatsListener.cpp \
+#           MemoryEthSensorListener.cpp \
 
-EXEC     = LirLogger
+SRC_CPPS = \
+           LirTest.cpp
+
+EXEC     = LirTest
 
 #FFMPEG_LIBS=libavdevice libavformat libavfilter libavcodec libswscale libavutil
 #CFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))

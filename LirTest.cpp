@@ -23,6 +23,8 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
 
 #define MAXFILEPATH 1024
 
@@ -52,6 +54,14 @@ int _kbhit(void)
 
     return 0;
 }
+
+typedef struct CAMINFO{
+    char* MACAddress;
+    char* filename;
+    char* prefix;
+}CamInfo;
+
+volatile sig_atomic_t running = 1;
 
 #define _getch getchar
 
@@ -98,8 +108,9 @@ extern "C"
 // Shows how to use a PvPipeline object to acquire images from a device
 //
 
-bool AcquireImages(char *MACAddress, char* filename)
+bool AcquireImages(CamInfo* cams, int numCams)
 {
+    int i;
     PvResult result;
 
     // Initialize Camera System
@@ -111,95 +122,100 @@ bool AcquireImages(char *MACAddress, char* filename)
         return false;
     }
 
-    PvDeviceInfo* lDeviceInfo = NULL;
-    PvDeviceInfo* tempInfo;
+    PvDevice lDevice[numCams];
+    PvGenParameterArray *lDeviceParams[numCams];
+    PvStream lStream[numCams];
+    PvPipeline *lPipeline[numCams];
+    for(i=0; i < numCams; i++){
+        PvDeviceInfo* lDeviceInfo = NULL;
+        PvDeviceInfo* tempInfo;
 
-    // Get the number of GEV Interfaces that were found using GetInterfaceCount.
-    PvUInt32 lInterfaceCount = system.GetInterfaceCount();
+        // Get the number of GEV Interfaces that were found using GetInterfaceCount.
+        PvUInt32 lInterfaceCount = system.GetInterfaceCount();
 
-    // For each interface, check MAC Address against passed address
-    for( PvUInt32 x = 0; x < lInterfaceCount; x++ )
-    {
-        // get pointer to each of interface
-        PvInterface * lInterface = system.GetInterface( x );
-
-        // Get the number of GEV devices that were found using GetDeviceCount.
-        PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
-
-        for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
+        // For each interface, check MAC Address against passed address
+        for( PvUInt32 x = 0; x < lInterfaceCount; x++ )
         {
-            tempInfo = lInterface->GetDeviceInfo( y );
-            if(strlen(MACAddress) == strlen(tempInfo->GetMACAddress().GetAscii()) && strncmp(MACAddress,tempInfo->GetMACAddress().GetAscii(),strlen(MACAddress)) == 0){
-                lDeviceInfo = tempInfo;
-                break;
+            // get pointer to each of interface
+            PvInterface * lInterface = system.GetInterface( x );
+
+            // Get the number of GEV devices that were found using GetDeviceCount.
+            PvUInt32 lDeviceCount = lInterface->GetDeviceCount();
+
+            for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
+            {
+                tempInfo = lInterface->GetDeviceInfo( y );
+                if(strlen(cams[i].MACAddress) == strlen(tempInfo->GetMACAddress().GetAscii()) && strncmp(cams[i].MACAddress,tempInfo->GetMACAddress().GetAscii(),strlen(cams[i].MACAddress)) == 0){
+                    lDeviceInfo = tempInfo;
+                    break;
+                }
             }
         }
+
+        // If no device is selected, abort
+        if( lDeviceInfo == NULL )
+        {
+            printf( "No device selected.\n" );
+            return false;
+        }
+
+        // Connect to the GEV Device
+        printf( "Connecting to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
+        if ( !lDevice[i].Connect( lDeviceInfo ).IsOK() )
+        {
+            printf( "Unable to connect to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
+            return false;
+        }
+        printf( "Successfully connected to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
+        printf( "\n" );
+
+        // Get device parameters need to control streaming
+        lDeviceParams[i] = lDevice[i].GetGenParameters();
+
+        // Negotiate streaming packet size
+        lDevice[i].NegotiatePacketSize();
+
+        // Open stream - have the PvDevice do it for us
+        printf( "Opening stream to device\n" );
+        lStream[i].Open( lDeviceInfo->GetIPAddress() );
+
+        // Create the PvPipeline object
+        lPipeline[i] = new PvPipeline( &lStream[i] );
+
+        // Reading payload size from device
+        PvInt64 lSize = 0;
+        lDeviceParams[i]->GetIntegerValue( "PayloadSize", lSize );
+
+        // Set the Buffer size and the Buffer count
+        lPipeline[i]->SetBufferSize( static_cast<PvUInt32>( lSize ) );
+        lPipeline[i]->SetBufferCount( 16 ); // Increase for high frame rate without missing block IDs
+
+        // Have to set the Device IP destination to the Stream
+        lDevice[i].SetStreamDestination( lStream[i].GetLocalIPAddress(), lStream[i].GetLocalPort() );
     }
 
-    // If no device is selected, abort
-    if( lDeviceInfo == NULL )
-    {
-        printf( "No device selected.\n" );
-        return false;
+    PvGenParameterArray *lStreamParams[numCams];
+    for(i=0; i < numCams; i++){
+        // IMPORTANT: the pipeline needs to be "armed", or started before
+        // we instruct the device to send us images
+        printf( "Starting pipeline %d\n",i);
+        lPipeline[i]->Start();
+
+        // Get stream parameters/stats
+        lStreamParams[i] = lStream[i].GetParameters();
+
+        // TLParamsLocked is optional but when present, it MUST be set to 1
+        // before sending the AcquisitionStart command
+        lDeviceParams[i]->SetIntegerValue( "TLParamsLocked", 1 );
+
+        printf( "Resetting timestamp counter...\n" );
+        lDeviceParams[i]->ExecuteCommand( "GevTimestampControlReset" );
+
+        // The pipeline is already "armed", we just have to tell the device
+        // to start sending us images
+        printf( "Sending StartAcquisition command to device\n" );
+        lDeviceParams[i]->ExecuteCommand( "AcquisitionStart" );
     }
-
-    // Connect to the GEV Device
-    PvDevice lDevice;
-    printf( "Connecting to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
-    if ( !lDevice.Connect( lDeviceInfo ).IsOK() )
-    {
-        printf( "Unable to connect to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
-        return false;
-    }
-    printf( "Successfully connected to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
-    printf( "\n" );
-
-    // Get device parameters need to control streaming
-    PvGenParameterArray *lDeviceParams = lDevice.GetGenParameters();
-
-    // Negotiate streaming packet size
-    lDevice.NegotiatePacketSize();
-
-    // Create the PvStream object
-    PvStream lStream;
-
-    // Open stream - have the PvDevice do it for us
-    printf( "Opening stream to device\n" );
-    lStream.Open( lDeviceInfo->GetIPAddress() );
-
-    // Create the PvPipeline object
-    PvPipeline lPipeline( &lStream );
-
-    // Reading payload size from device
-    PvInt64 lSize = 0;
-    lDeviceParams->GetIntegerValue( "PayloadSize", lSize );
-
-    // Set the Buffer size and the Buffer count
-    lPipeline.SetBufferSize( static_cast<PvUInt32>( lSize ) );
-    lPipeline.SetBufferCount( 16 ); // Increase for high frame rate without missing block IDs
-
-    // Have to set the Device IP destination to the Stream
-    lDevice.SetStreamDestination( lStream.GetLocalIPAddress(), lStream.GetLocalPort() );
-
-    // IMPORTANT: the pipeline needs to be "armed", or started before 
-    // we instruct the device to send us images
-    printf( "Starting pipeline\n" );
-    lPipeline.Start();
-
-    // Get stream parameters/stats
-    PvGenParameterArray *lStreamParams = lStream.GetParameters();
-
-    // TLParamsLocked is optional but when present, it MUST be set to 1
-    // before sending the AcquisitionStart command
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
-
-    printf( "Resetting timestamp counter...\n" );
-    lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
-
-    // The pipeline is already "armed", we just have to tell the device
-    // to start sending us images
-    printf( "Sending StartAcquisition command to device\n" );
-    lDeviceParams->ExecuteCommand( "AcquisitionStart" );
 
     char lDoodle[] = "|\\-|-/";
     int lDoodleIndex = 0;
@@ -213,84 +229,98 @@ bool AcquireImages(char *MACAddress, char* filename)
     //PvBufferWriter writer;
     char filePath[MAXFILEPATH];
     PvUInt32 lWidth = 4096, lHeight = 9250;
-    while ( !_kbhit() )
+    while ( running )
     {
-        // Retrieve next buffer		
-        PvBuffer *lBuffer = NULL;
-        PvResult  lOperationResult;
-        PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+        for(i=0; i < numCams; i++){
+            // Retrieve next buffer		
+            PvBuffer *lBuffer = NULL;
+            PvResult  lOperationResult;
+            PvResult lResult = lPipeline[i]->RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
 
-        if ( lResult.IsOK() )
-        {
-            if ( lOperationResult.IsOK() )
+            if ( lResult.IsOK() )
             {
-                lStreamParams->GetIntegerValue( "ImagesCount", lImageCountVal );
-                lStreamParams->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
-                lStreamParams->GetFloatValue( "BandwidthAverage", lBandwidthVal );
-                lStreamParams->GetIntegerValue("PipelineBlocksDropped", lPipelineBlocksDropped);
+                if ( lOperationResult.IsOK() )
+                {
+                    lStreamParams[i]->GetIntegerValue( "ImagesCount", lImageCountVal );
+                    lStreamParams[i]->GetFloatValue( "AcquisitionRateAverage", lFrameRateVal );
+                    lStreamParams[i]->GetFloatValue( "BandwidthAverage", lBandwidthVal );
+                    lStreamParams[i]->GetIntegerValue("PipelineBlocksDropped", lPipelineBlocksDropped);
 
-                filePath[0] = '\0';
-                sprintf(filePath,"%s/%04X.tif",filename,lBuffer->GetBlockID());
-                TIFF *out = TIFFOpen(filePath,"w");
-                TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
-                TIFFSetField(out, TIFFTAG_IMAGELENGTH, lHeight);
-                TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 1);
-                TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
-                TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-                TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-                TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
-                TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+                    filePath[0] = '\0';
+                    sprintf(filePath,"%s/%s%04X.tif",cams[i].filename,cams[i].prefix,lBuffer->GetBlockID());
+                    TIFF *out = TIFFOpen(filePath,"w");
+                    TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);
+                    TIFFSetField(out, TIFFTAG_IMAGELENGTH, lHeight);
+                    TIFFSetField(out, TIFFTAG_SAMPLESPERPIXEL, 1);
+                    TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 8);
+                    TIFFSetField(out, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+                    TIFFSetField(out, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+                    TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+                    TIFFSetField(out, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
 
-                TIFFWriteEncodedStrip(out,0,lBuffer->GetDataPointer(),lWidth*lHeight);
-                TIFFClose(out);
+                    TIFFWriteEncodedStrip(out,0,lBuffer->GetDataPointer(),lWidth*lHeight);
+                    TIFFClose(out);
 
-                printf( "%c Timestamp: %016llX BlockID: %04X %.01f FPS %d DROP %.01f Mb/s\r",
-                        lDoodle[ lDoodleIndex ],
-                        lBuffer->GetTimestamp(),
-                        lBuffer->GetBlockID(),
-                        lFrameRateVal,
-                        lPipelineBlocksDropped,
-                        lBandwidthVal / 1000000.0 );
+                    printf( "%d:%s%c Timestamp: %016llX BlockID: %04X %.01f FPS %d DROP %.01f Mb/s\r\n",i,
+                            cams[i].prefix,
+                            lDoodle[ lDoodleIndex ],
+                            lBuffer->GetTimestamp(),
+                            lBuffer->GetBlockID(),
+                            lFrameRateVal,
+                            lPipelineBlocksDropped,
+                            lBandwidthVal / 1000000.0 );
+                } else {
+                    printf("%d: ERROR Code: %s, Description: %s\r\n",i,lOperationResult.GetCodeString().GetAscii(),lOperationResult.GetDescription().GetAscii());
+                }
+                // We have an image - do some processing (...)
+                // VERY IMPORTANT:
+                // release the buffer back to the pipeline
+                lPipeline[i]->ReleaseBuffer( lBuffer );
+                usleep(200);
             }
-            // We have an image - do some processing (...)
-            // VERY IMPORTANT:
-            // release the buffer back to the pipeline
-            lPipeline.ReleaseBuffer( lBuffer );
+            else
+            {
+                // Timeout
+                printf( "%d:%s%c Timeout\r\n",i, cams[i].prefix,lDoodle[ lDoodleIndex ]);
+            }
         }
-        else
-        {
-            // Timeout
-            printf( "%c Timeout\r", lDoodle[ lDoodleIndex ] );
-        }
-
         ++lDoodleIndex %= 6;
     }
 
-    _getch(); // Flush key buffer for next stop
+    //_getch(); // Flush key buffer for next stop
     printf( "\n\n" );
 
-    // Tell the device to stop sending images
-    printf( "Sending AcquisitionStop command to the device\n" );
-    lDeviceParams->ExecuteCommand( "AcquisitionStop" );
+    for(i=0; i < numCams; i++){
+        // Tell the device to stop sending images
+        printf( "Sending AcquisitionStop command to the device\n" );
+        lDeviceParams[i]->ExecuteCommand( "AcquisitionStop" );
 
-    // If present reset TLParamsLocked to 0. Must be done AFTER the 
-    // streaming has been stopped
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 0 );
+        // If present reset TLParamsLocked to 0. Must be done AFTER the 
+        // streaming has been stopped
+        lDeviceParams[i]->SetIntegerValue( "TLParamsLocked", 0 );
 
-    // We stop the pipeline - letting the object lapse out of 
-    // scope would have had the destructor do the same, but we do it anyway
-    printf( "Stop pipeline\n" );
-    lPipeline.Stop();
+        // We stop the pipeline - letting the object lapse out of 
+        // scope would have had the destructor do the same, but we do it anyway
+        printf( "Stop pipeline\n" );
+        lPipeline[i]->Stop();
+        delete lPipeline[i];
 
-    // Now close the stream. Also optionnal but nice to have
-    printf( "Closing stream\n" );
-    lStream.Close();
+        // Now close the stream. Also optionnal but nice to have
+        printf( "Closing stream\n" );
+        lStream[i].Close();
 
-    // Finally disconnect the device. Optional, still nice to have
-    printf( "Disconnecting device\n" );
-    lDevice.Disconnect();
+        // Finally disconnect the device. Optional, still nice to have
+        printf( "Disconnecting device\n" );
+        lDevice[i].Disconnect();
+    }
 
     return true;
+}
+
+void *RunCam(void* tInfo){
+    CamInfo* info = (CamInfo*)tInfo;
+
+    //    AcquireImages(info->MACAddress,info->filename,info->prefix);
 }
 
 
@@ -300,22 +330,47 @@ bool AcquireImages(char *MACAddress, char* filename)
 
 int main(int argc, char** argv)
 {
-    if(argc != 3){
-        fprintf(stderr,"Incorrect number of arguments passed.\nEXAMPLE: ./LirTest \"<Camera MAC Address>\" \"<encoder output file path>\"\n");
+    int i;
+
+    if(argc != 5){
+        fprintf(stderr,"Incorrect number of arguments passed.\nEXAMPLE: ./LirTest \"<Camera 1 MAC Address>\" \"<encoder 1 output file path>\" \"<Camera 2 MAC Address>\" \"<encoder 2 output file path>\"\n");
         exit(EXIT_FAILURE);
     }
 
-    char* MACAddress = argv[1];
-    char* filename = argv[2];
+    pthread_t thread[2];
+    pthread_attr_t attr;
+    CamInfo camInfo[2];
+    running = 1;
 
-    // PvPipeline used to acquire images from a device
-    printf("Opening camera connection @ %s and outputting encoded data to %s\n",MACAddress,filename);
-    printf( "1. PvPipeline sample - image acquisition from a device\n\n" );
-    AcquireImages(MACAddress, filename);
+    camInfo[0].MACAddress = argv[1];
+    camInfo[0].filename = argv[2];
+    camInfo[0].prefix = "CAM1-";
+    camInfo[1].MACAddress = argv[3];
+    camInfo[1].filename = argv[4];
+    camInfo[1].prefix = "CAM2-";
+
+    /*
+       pthread_attr_init(&attr);
+       pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+
+       for(i=0; i < 2; i++){
+       pthread_create(&thread[i],&attr,RunCam,(void*)&camInfo[i]);
+       }
+     */
+
+    AcquireImages(camInfo,2);
 
     printf( "\n<press the enter key to exit>\n" );
     while ( !_kbhit() );
 
+    running = 0;
+
+    /*
+       pthread_attr_destroy(&attr);
+       for(i=0; i < 2; i++){
+       pthread_join(thread[i],NULL);
+       }
+     */
     return 0;
 }
 
