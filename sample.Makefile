@@ -15,7 +15,7 @@ CC=gcc
 CPP=g++
 LD=$(CPP)
 
-PUREGEV_ROOT ?= ../../..
+PUREGEV_ROOT ?= /opt/pleora/ebus_sdk
 
 INC_DIR         = $(PUREGEV_ROOT)/include
 LIB_DIR         = $(PUREGEV_ROOT)/lib
@@ -47,7 +47,7 @@ LDFLAGS   += -L$(LIB_DIR)         \
              -lPvBase             \
              -lPvDevice           \
              -lPvBuffer           \
-             -lPvGUI              \
+			 -lPvGUI			  \
              -lPvPersistence      \
              -lPvGenICam          \
              -lPvStreamRaw        \

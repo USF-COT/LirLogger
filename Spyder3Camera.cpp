@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 
+#include <PvSampleUtils.h>
 #include <PvSystem.h>
 #include <PvInterface.h>
 #include <PvDeviceFinderWnd.h>
