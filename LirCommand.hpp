@@ -28,16 +28,22 @@
 
 using namespace std;
 
-// Singleton code from: http://www.yolinux.com/TUTORIALS/C++Singleton.html
+// Singleton code from: http://www.yoeinux.com/TUTORIALS/C++Singleton.html
 class LirCommand{
 
     boost::mutex commandMutex;
+    bool deploymentSet;
     bool running;
 
     // Output folder defaults
     string outputFolder;
-    string deployment;
-    unsigned int stationID;
+
+    // Deployment Settings
+    string authority;
+    unsigned int deploymentID;
+    string cruise;
+    string station;
+    string UDR; 
 
     // Camera and Logger Classes
     Spyder3Camera* camera;
@@ -47,9 +53,9 @@ class LirCommand{
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes
-    vector<EthSensor *> sensors;
-    vector<LirSQLiteWriter *> sensorWriters;
-    vector<MemoryEthSensorListener *> sensorMems;
+    map <unsigned int, EthSensor *> sensors;
+    map <unsigned int, LirSQLiteWriter *> sensorWriters;
+    map <unsigned int, MemoryEthSensorListener *> sensorMems;
 
     // Parser Functions
     std::map<std::string, boost::function<string (LirCommand*,const string)> > commands;
@@ -59,12 +65,23 @@ class LirCommand{
         LirCommand(LirCommand const&){};
         LirCommand& operator=(LirCommand const*){};
         static LirCommand* m_pInstance;
-        void ConnectListeners();
+        void connectCameraListeners();
+        void connectSensorSQLWriters();
 
         string receiveStatusCommand(const string message);
         string receiveStartCommand(const string message);
         string receiveStopCommand(const string message);
+
         string receiveSetDeploymentCommand(const string message);
+
+        string receiveSetCameraCommand(const string command);
+
+        string receiveClearSensorsCommand(const string command);
+        string receiveAddSensorCommand(const string command);
+        string receiveSetFieldsCommand(const string command);
+        string receiveGetSensorValue(const string command);
+        string receiveGetSensorValueHistory(const string command);
+
         void findLastDeploymentStation();
         string generateFolderName();
         void setListenersOutputFolder();

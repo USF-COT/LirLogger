@@ -20,19 +20,52 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
 
-#define SCHEMAPATH "LirConfigSchema.xsd"
-
 using namespace std;
+
+// Taken from http://stackoverflow.com/questions/5612182/convert-string-with-explicit-escape-sequence-into-relative-character 
+string unescape(const string& s)
+{
+    string res;
+    string::const_iterator it = s.begin();
+    while (it != s.end())
+    {
+        char c = *it++;
+        if (c == '\\' && it != s.end())
+        {
+            switch (*it++) {
+                case '\\': c = '\\'; break;
+                case 'r': c = '\r'; break;
+                case 'n': c = '\n'; break;
+                case 't': c = '\t'; break;
+                    // all other escapes
+                default:
+                    continue;
+            }
+        }
+        res += c;
+    }
+
+    return res;
+}
+
+#define DEFAULTOUTPUTFOLDER "/data1/LirLoggerData"
 
 LirCommand* LirCommand::m_pInstance = NULL;
 
-LirCommand::LirCommand() : running(false),camera(NULL){
-    this->deployment = "default";
-    this->stationID = 0;
+LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL){
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
     commands["status"] = &LirCommand::receiveStatusCommand;
+
     commands["deployment"] = &LirCommand::receiveSetDeploymentCommand;
+
+    commands["camera"] = &LirCommand::receiveSetCameraCommand;
+
+    commands["clear_sensors"] = &LirCommand::receiveClearSensorsCommand;
+    commands["add_sensor"] = &LirCommand::receiveAddSensorCommand;
+    commands["set_fields"] = &LirCommand::receiveSetFieldsCommand;
+    commands["get_value"] = &LirCommand::receiveGetSensorValue;
+    commands["get_value_history"] = &LirCommand::receiveGetSensorValueHistory;
 }
 
 LirCommand::~LirCommand(){
@@ -55,14 +88,21 @@ string LirCommand::receiveStatusCommand(const string command){
     response << status << "\r\n";
 
     // Compose output type
-    response << "Deployment:" << this->deployment << "\r\n";
-    response << "Station:" << this->stationID << "\r\n";
+    if(deploymentSet){
+        response << "Authority:" << this->authority << "\r\n";
+        response << "Deployment ID:" << this->deploymentID << "\r\n";
+        response << "Cruise:" << this->cruise << "\r\n";
+        response << "Station:" << this->station << "\r\n";
+        response << "UDR:" << this->UDR << "\r\n";
+    } else {
+        response << "ERROR:DEPLOYMENT NOT CONFIGURED" << "\r\n";
+    }
 
     // Compose camera status
     if(this->camera){
         response << "Camera:" << this->camera->getMAC() << "," << this->camera->getNumBuffers() << "\r\n";
     } else {
-        response << "Camera:ERROR\r\n";
+        response << "ERROR:CAMERA NOT CONFIGURED" << "\r\n";
     }
 
     // Compose sensor statuses
@@ -84,12 +124,15 @@ string LirCommand::receiveStatusCommand(const string command){
 }
 
 string LirCommand::receiveStartCommand(const string command){
-    this->startLogger();
-    return string();
+    if(this->startLogger()){
+        return string();
+    } else {
+        return string("Error starting logger. Check status for errors.");
+    }
 }
 
 bool LirCommand::startLogger(){
-    if(!this->running){
+    if(!this->running && this->deploymentSet){
         commandMutex.lock();
         if(this->camera) this->camera->start();
         for(unsigned int i=0; i < sensors.size(); ++i){
@@ -97,6 +140,9 @@ bool LirCommand::startLogger(){
         }
         this->running = true;
         commandMutex.unlock();
+        return true;
+    } else {
+        return false;
     }
 }
 
@@ -137,12 +183,19 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
         tokens.push_back(t);
     }
 
-    if(tokens.size() >= 3 && tokens[1].size() > 0 && tokens[2].size() > 0){
-        this->deployment = string(tokens[1]);
-        this->stationID = 0;
-        stringstream ss;
-        ss << tokens[2];
-        ss >> this->stationID;
+    if(tokens.size() >= 6){
+        this->authority = string(tokens[1]);
+        try{
+            this->deploymentID = boost::lexical_cast<unsigned int>(tokens[2]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid deployment ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
+            return string("Unable to parse deployment ID");
+        }
+        this->cruise = string(tokens[3]);
+        this->station = string(tokens[4]);
+        this->UDR = string(tokens[5]);
+
+        this->deploymentSet = true;
 
         // Pass new folder to listeners
         setListenersOutputFolder();
@@ -150,15 +203,49 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
     return string();
 }
 
+string LirCommand::receiveSetCameraCommand(const string command){
+    vector<string> tokens;
+    boost::escaped_list_separator<char> sep('\\',' ','\"');
+    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
+    BOOST_FOREACH(string t, tok){
+        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
+        tokens.push_back(t);
+    }
+
+    if(tokens.size() >= 3){
+        if(this->running){
+            return string("Cannot setup camera while system is running.  Please stop the system before changing any settings.");
+        }
+        string MAC = string(tokens[1]);
+        int numBuffers = 32;
+        try{
+            numBuffers = boost::lexical_cast<unsigned int>(tokens[2]);
+        } catch (boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR, "You must pass an integer for the number of buffers. Using default 32.");
+        }
+        this->camera = new Spyder3Camera(MAC.c_str(), numBuffers);
+        this->connectCameraListeners();
+    }
+    return string();
+}
+
 // Config parsing functions follow
 string LirCommand::generateFolderName(){
-    stringstream ss;
-    ss << this->outputFolder << "/" << this->deployment << "-" << this->stationID;
-    return ss.str();
+    if (this->deploymentSet){
+        stringstream ss;
+        ss << this->outputFolder << "/" << this->authority << "." << this->deploymentID << ".";
+        ss << this->cruise << "." << this->station << ".";
+        ss << this->UDR;
+        return ss.str();
+    } else {
+        syslog(LOG_DAEMON|LOG_ERR, "Unable to generate logger path.  Deployment details not set.");
+        return string();        
+    }
 }
 
 void LirCommand::setListenersOutputFolder(){
     string fullPath = this->generateFolderName();
+    syslog(LOG_DAEMON|LOG_INFO,"Output path changed to: %s", fullPath.c_str());
     syslog(LOG_DAEMON|LOG_INFO,"Changing tiff writer path.");
     if(this->writer) this->writer->changeFolder(fullPath);
     syslog(LOG_DAEMON|LOG_INFO,"Changing SQLite Writer paths.");
@@ -167,20 +254,22 @@ void LirCommand::setListenersOutputFolder(){
     }
 }
 
-void LirCommand::ConnectListeners(){
+void LirCommand::connectCameraListeners(){
     string fullPath = this->generateFolderName();
     this->writer = new Spyder3TiffWriter(fullPath);
     this->camera->addListener(this->writer);
     this->camStats = new MemoryCameraStatsListener();
     this->camera->addStatsListener(this->camStats);
-    for(unsigned int i=0; i < sensors.size(); ++i){
-        syslog(LOG_DAEMON|LOG_INFO,"Adding SQLite Writer.");
-        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensors[i], fullPath);
-        sensorWriters.push_back(sensorWriter);
+}
 
-        MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
-        sensors[i]->addListener(memListener);
-        sensorMems.push_back(memListener);
+void LirCommand::connectSensorSQLWriters(){
+    string fullPath = this->generateFolderName();
+    map<unsigned int, EthSensor*>::iterator it;
+    for(it = this->sensors.begin(); it != this->sensors.end(); it++){
+        EthSensor* sensor = it->second;
+        syslog(LOG_DAEMON|LOG_INFO,"Adding SQLite Writer.");
+        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
+        this->sensorWriters[sensor->getID()] = sensorWriter;
     }
 }
 
@@ -194,6 +283,97 @@ Spyder3Stats LirCommand::getCameraStats(){
     return retVal;
 }
 
+string LirCommand::receiveClearSensorsCommand(const string command){
+    if(this->running){
+        return string("Cannot change logger settings while it is running.  Please stop the system and try again.");
+    }
+
+    // Clear sensor lists
+    map<unsigned int, EthSensor*>::iterator it;
+    for (it=this->sensors.begin(); it != this->sensors.end(); ++it){
+        delete it->second;
+    }
+    sensors.clear();
+
+    map<unsigned int, LirSQLiteWriter*>::iterator wt;
+    for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
+        delete wt->second;
+    }
+    sensorWriters.clear();
+
+    map<unsigned int, MemoryEthSensorListener*>::iterator mt;
+    for (mt=this->sensorMems.begin(); mt != this->sensorMems.end(); ++mt){
+        delete mt->second;
+    }
+    sensorMems.clear();
+
+    return string();
+}
+
+string LirCommand::receiveAddSensorCommand(const string command){
+    if(this->running){
+        return string("Cannot change logger settings while it is running.  Please stop the system and try again.");
+    }
+
+    vector<string> tokens;
+    boost::escaped_list_separator<char> sep('\\',' ','\"');
+    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
+    BOOST_FOREACH(string t, tok){
+        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
+        tokens.push_back(t);
+    }
+
+    if(tokens.size() >= 8){
+        string authority = string(tokens[1]);
+        unsigned int sensorID = 0;
+        try{
+             sensorID = boost::lexical_cast<unsigned int>(tokens[2]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid sensor ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
+            return string("Unable to parse sensor ID");
+        }
+        string sensorName = string(tokens[3]);
+        string startChars = unescape(string(tokens[4]));
+        string endChars = unescape(string(tokens[5]));
+        string delimeter = unescape(string(tokens[6]));
+        string lineEnd = unescape(string(tokens[7]));
+
+        string serialServer = string(tokens[8]);
+        unsigned int port = 4000;
+        try{
+             port = boost::lexical_cast<unsigned int>(tokens[9]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid serial server port passed to Lir Command Parser: %s is not an integer.",tokens[8].c_str());
+            return string("Unable to parse serial server port");
+        }
+
+        map <unsigned int, FieldDescriptor> fields;
+        for(int i=10; i < tokens.size()-2; i+=4){
+            FieldDescriptor d;
+            unsigned int fieldID = 0;
+            try{
+                fieldID  = boost::lexical_cast<unsigned int>(tokens[i]);
+            } catch ( boost::bad_lexical_cast const &){
+                syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[i].c_str());
+                return string("Unable to parse field ID");
+            }
+            d.name = string(tokens[i+1]);
+            d.units = string(tokens[i+2]);
+            d.isNum = boost::iequals(string(tokens[i+3]), "numeric");
+            fields[fieldID] = d;
+        }
+        // Create and start sensor so that clients can read it whenever
+        EthSensor* sensor = new EthSensor(sensorID, serialServer, port, sensorName, lineEnd, delimeter, fields, startChars, endChars);
+        sensor->Connect();
+        this->sensors[sensorID] = sensor;
+        MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
+        sensors[sensorID]->addListener(memListener);
+        sensorMems[sensorID] = memListener;
+    }
+    return string();
+}
+
+/*
 vector<EthSensorReadingSet> LirCommand::getSensorSets(){
     vector<EthSensorReadingSet> retVal;
 
@@ -205,33 +385,7 @@ vector<EthSensorReadingSet> LirCommand::getSensorSets(){
 
     return retVal;
 }
-
-// Taken from http://stackoverflow.com/questions/5612182/convert-string-with-explicit-escape-sequence-into-relative-character
-string unescape(const string& s)
-{
-    string res;
-    string::const_iterator it = s.begin();
-    while (it != s.end())
-    {
-        char c = *it++;
-        if (c == '\\' && it != s.end())
-        {
-            switch (*it++) {
-                case '\\': c = '\\'; break;
-                case 'r': c = '\r'; break;
-                case 'n': c = '\n'; break;
-                case 't': c = '\t'; break;
-                          // all other escapes
-                default: 
-                          // invalid escape sequence - skip it. alternatively you can copy it as is, throw an exception...
-                          continue;
-            }
-        }
-        res += c;
-    }
-
-    return res;
-}
+*/
 
 void LirCommand::findLastDeploymentStation(){
     DIR* dp;
@@ -264,20 +418,32 @@ void LirCommand::findLastDeploymentStation(){
     vector<string> tokens;
     if(fileName.size() > 0){
         syslog(LOG_DAEMON|LOG_INFO,"Found %s to be the latest directory.",fileName.c_str());
-        split(tokens, fileName, boost::is_any_of("-"), boost::token_compress_on);
+        split(tokens, fileName, boost::is_any_of("."), boost::token_compress_on);
         if(tokens.size() > 1){
-            this->deployment = string(tokens[0]);
-            stringstream ss;
-            ss << tokens[1];
-            ss >> this->stationID;
-            syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s-%d",this->deployment.c_str(),this->stationID);
+            this->authority = string(tokens[0]);
+            try{
+                this->deploymentID = boost::lexical_cast<unsigned int>(tokens[1]);
+            } catch (boost::bad_lexical_cast const &){
+                syslog(LOG_DAEMON|LOG_ERR,"Invalid deployment ID passed to Lir Command Parser: %s is not an integer.  Using 0 as default.",tokens[1].c_str());
+                this->deploymentID = 0;
+            }
+            this->cruise = string(tokens[2]);
+            this->station = string(tokens[3]);
+            this->UDR = string(tokens[4]);
+            this->deploymentSet = true;
+
+            syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s",this->generateFolderName().c_str());
         } else {
             syslog(LOG_DAEMON|LOG_ERR,"Unable to parse directory correctly.");
         }
     } else {
-        this->deployment = string("default");
-        this->stationID = 0;
-        syslog(LOG_DAEMON|LOG_INFO,"No deployment directory found, using name %s-%d",this->deployment.c_str(),this->stationID);
+        this->authority = "NOAUTH";
+        this->deploymentID = 0;
+        this->cruise = "NOCRUISE";
+        this->station = "NOSTATION";
+        this->UDR = "NOUDR";
+        this->deploymentSet = true;
+        syslog(LOG_DAEMON|LOG_INFO,"No deployment directory found, using name %s",this->generateFolderName().c_str());
     }
 }
 
@@ -333,19 +499,4 @@ EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
 }
 */
 
-bool LirCommand::loadConfig(char* configPath){
-    bool parsed = true;
-
-    if(!this->running){
-        commandMutex.lock();
-        // Load Configuration Here
-
-        this->ConnectListeners();
-
-        commandMutex.unlock();
-    } else {
-        syslog(LOG_DAEMON|LOG_ERR, "Cannot reconfigure a running command instance.");
-    }
-    return parsed;
-}
 

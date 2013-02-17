@@ -12,7 +12,7 @@
 
 using namespace std;
 
-EthSensor::EthSensor(const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
+EthSensor::EthSensor(const unsigned int _sensorID, const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const map<unsigned int, FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
     running = false;
 
 }
@@ -157,6 +157,10 @@ void EthSensor::operator() (){
         l->sensorStopping();
     }
     listenersMutex.unlock(); 
+}
+
+unsigned int EthSensor::getID(){
+    return this->sensorID;
 }
 
 string EthSensor::getName(){

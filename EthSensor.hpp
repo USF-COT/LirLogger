@@ -15,17 +15,19 @@ using namespace std;
 typedef struct{
     bool isNum;
     string name;
+    string units;
 }FieldDescriptor;
 
 class EthSensor{    
 
 private:
+    unsigned int sensorID;
     string IP;
     unsigned int port;
     string name;
     string lineEnd;
     string delimeter;
-    vector<FieldDescriptor> fields;
+    map<unsigned int, FieldDescriptor> fields;
     string startChars;
     string endChars;
     vector<IEthSensorListener *> listeners;
@@ -45,7 +47,7 @@ private:
     void parseLine(const boost::system::error_code& ec, size_t bytes_transferred);
 
 public:
-    EthSensor(const string IP, const unsigned int port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars);
+    EthSensor(const unsigned int _sensorID, const string IP, const unsigned int port, const string _name, const string _lineEnd, const string _delimeter, const map<unsigned int, FieldDescriptor> _fields, const string _startChars, const string _endChars);
     ~EthSensor();
     bool Connect();
     bool Disconnect();
@@ -53,6 +55,7 @@ public:
     void clearListeners();
     bool isRunning();
     void operator() ();
+    unsigned int getID();
     string getName();
     vector<FieldDescriptor> getFieldDescriptors();
 };

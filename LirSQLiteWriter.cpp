@@ -21,14 +21,16 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     stringstream ss;
     stringstream is;
     stringstream qMarks;
-    ss << "CREATE TABLE IF NOT EXISTS main." << sensor->getName() << " (unix_timestamp INTEGER PRIMARY KEY NOT NULL, folder_id INTEGER NOT NULL, frame_id INTEGER NOT NULL";
+    ss << "CREATE TABLE IF NOT EXISTS main." << sensor->getName() << "-" << sensor->getID() << " (unix_timestamp INTEGER PRIMARY KEY NOT NULL, folder_id INTEGER NOT NULL, frame_id INTEGER NOT NULL";
     is << "INSERT INTO main." << sensor->getName() << " (unix_timestamp, folder_id, frame_id";
     qMarks << " (?,?,?";
     this->fields = sensor->getFieldDescriptors();
-    for(unsigned int i=0; i < fields.size(); ++i){
-        string type = fields[i].isNum ? "REAL":"TEXT";
-        ss << ", " << fields[i].name << " " << type << " NOT NULL";
-        is << ", " << fields[i].name;
+    map <unsigned int, FieldDescriptor>::iterator it;
+    for(it = fields.begin(); it != fields.end(); ++it){
+        field = it->second;
+        string type = field.isNum ? "REAL":"TEXT";
+        ss << ", " << field.name << " " << type << " NOT NULL";
+        is << ", " << field.name;
         qMarks << ",?";
     }
     ss << ")"; // Close column descriptions
@@ -85,17 +87,19 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
             sqlite3_bind_int64(pStmt,3,(int64_t)frameIDs.second);
 
             // Fill in the rest of the fields
-            for(unsigned int i=0; i < fields.size(); ++i){
-                if(fields[i].isNum){ // INSERT double value if number field
+            map<unsigned int, EthSensorReading*>::iterator it;
+            for(it = set.readings.begin(); it != set.readings.end(); ++it){
+                reading = it->second;
+                if(fields[it->first].isNum){ // INSERT double value if number field
                     double val = -1;
-                    if(set.readings[i].isNum){
-                       val = set.readings[i].num; 
+                    if(reading.isNum){
+                       val = reading.num; 
                     } else {
-                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",set.readings[i].field.c_str(),fields[i].name.c_str());
+                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[it->first].name.c_str());
                     }
                     sqlite3_bind_double(pStmt,i+4,val);
                 } else { // INSERT as text if text field
-                    sqlite3_bind_text(pStmt,i+4,set.readings[i].text.c_str(),set.readings[i].text.size(),SQLITE_TRANSIENT);
+                    sqlite3_bind_text(pStmt,i+4,reading.text.c_str(),reading.text.size(),SQLITE_TRANSIENT);
                 }
             }
             if(sqlite3_step(pStmt) == SQLITE_ERROR){

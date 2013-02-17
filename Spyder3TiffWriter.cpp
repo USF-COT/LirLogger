@@ -25,7 +25,7 @@ bool Spyder3TiffWriter::setNextFolderPath(){
     frameID=0;
     do{
         stringstream path;
-        path << outputFolderPath << "/" << ++folderID;
+        path << "/data1/LirLoggerOutput" << outputFolderPath << "/" << ++folderID;
         fullPath = path.str();
         syslog(LOG_DAEMON|LOG_INFO,"Trying %s folder.",fullPath.c_str());
         created = boost::filesystem::create_directories(fullPath);
