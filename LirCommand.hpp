@@ -78,9 +78,8 @@ class LirCommand{
 
         string receiveClearSensorsCommand(const string command);
         string receiveAddSensorCommand(const string command);
-        string receiveSetFieldsCommand(const string command);
         string receiveGetSensorValue(const string command);
-        string receiveGetSensorValueHistory(const string command);
+        //string receiveGetSensorValueHistory(const string command);
 
         void findLastDeploymentStation();
         string generateFolderName();

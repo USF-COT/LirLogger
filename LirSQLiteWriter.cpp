@@ -25,9 +25,9 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     is << "INSERT INTO main." << sensor->getName() << " (unix_timestamp, folder_id, frame_id";
     qMarks << " (?,?,?";
     this->fields = sensor->getFieldDescriptors();
-    map <unsigned int, FieldDescriptor>::iterator it;
+    vector <FieldDescriptor>::iterator it;
     for(it = fields.begin(); it != fields.end(); ++it){
-        field = it->second;
+        FieldDescriptor field = *it;
         string type = field.isNum ? "REAL":"TEXT";
         ss << ", " << field.name << " " << type << " NOT NULL";
         is << ", " << field.name;
@@ -87,15 +87,14 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
             sqlite3_bind_int64(pStmt,3,(int64_t)frameIDs.second);
 
             // Fill in the rest of the fields
-            map<unsigned int, EthSensorReading*>::iterator it;
-            for(it = set.readings.begin(); it != set.readings.end(); ++it){
-                reading = it->second;
-                if(fields[it->first].isNum){ // INSERT double value if number field
+            for(unsigned int i=0; i < set.readings.size(); ++i){
+                EthSensorReading reading = set.readings[i];
+                if(fields[i].isNum){ // INSERT double value if number field
                     double val = -1;
                     if(reading.isNum){
                        val = reading.num; 
                     } else {
-                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[it->first].name.c_str());
+                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[i].name.c_str());
                     }
                     sqlite3_bind_double(pStmt,i+4,val);
                 } else { // INSERT as text if text field

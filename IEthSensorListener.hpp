@@ -9,6 +9,7 @@
 using namespace std;
 
 typedef struct{
+    unsigned int fieldID;
     string field;
     bool isNum;
     string text;
@@ -18,7 +19,8 @@ typedef struct{
 typedef struct{
     time_t time;
     string sensorName;
-    map<unsigned int, EthSensorReading> readings;
+    vector<EthSensorReading> readings;
+    map<unsigned int, EthSensorReading> readingsByFieldID;
 }EthSensorReadingSet;
 
 class IEthSensorListener{

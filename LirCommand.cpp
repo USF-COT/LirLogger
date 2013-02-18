@@ -53,6 +53,7 @@ string unescape(const string& s)
 LirCommand* LirCommand::m_pInstance = NULL;
 
 LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL){
+    this->findLastDeploymentStation();
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
     commands["status"] = &LirCommand::receiveStatusCommand;
@@ -63,9 +64,8 @@ LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DE
 
     commands["clear_sensors"] = &LirCommand::receiveClearSensorsCommand;
     commands["add_sensor"] = &LirCommand::receiveAddSensorCommand;
-    commands["set_fields"] = &LirCommand::receiveSetFieldsCommand;
     commands["get_value"] = &LirCommand::receiveGetSensorValue;
-    commands["get_value_history"] = &LirCommand::receiveGetSensorValueHistory;
+    //commands["get_value_history"] = &LirCommand::receiveGetSensorValueHistory;
 }
 
 LirCommand::~LirCommand(){
@@ -106,12 +106,15 @@ string LirCommand::receiveStatusCommand(const string command){
     }
 
     // Compose sensor statuses
-    for(unsigned int i=0; i < sensors.size(); ++i){
-        response << "Sensor[" << i << "]" << sensors[i]->getName() << ":time(number),frame_id(number),folder_id(number)";
-        vector<FieldDescriptor> fields = sensors[i]->getFieldDescriptors();
+    map<unsigned int, EthSensor*>::iterator it;
+    for (it=this->sensors.begin(); it != this->sensors.end(); ++it){
+        unsigned int sensorID = it->first;
+        EthSensor* sensor = it->second;
+        response << "Sensor[" << sensorID << "]:" << sensor->getName() << ":time(number),frame_id(number),folder_id(number)";
+        vector<FieldDescriptor> fields = sensor->getFieldDescriptors();
         for(unsigned int j=0; j < fields.size(); ++j){
             string type = fields[j].isNum ? "number" : "text";
-            response << "," << fields[j].name << "(" << type << ")";
+            response << "," << fields[j].name << "(ID:" << fields[j].id << " Type:" << type << ")";
         }
         response << "\r\n";
     }
@@ -323,7 +326,7 @@ string LirCommand::receiveAddSensorCommand(const string command){
         tokens.push_back(t);
     }
 
-    if(tokens.size() >= 8){
+    if(tokens.size() >= 9){
         string authority = string(tokens[1]);
         unsigned int sensorID = 0;
         try{
@@ -347,12 +350,12 @@ string LirCommand::receiveAddSensorCommand(const string command){
             return string("Unable to parse serial server port");
         }
 
-        map <unsigned int, FieldDescriptor> fields;
+        vector <FieldDescriptor> fields;
         for(int i=10; i < tokens.size()-2; i+=4){
             FieldDescriptor d;
-            unsigned int fieldID = 0;
+            d.id = 0;
             try{
-                fieldID  = boost::lexical_cast<unsigned int>(tokens[i]);
+                d.id  = boost::lexical_cast<unsigned int>(tokens[i]);
             } catch ( boost::bad_lexical_cast const &){
                 syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[i].c_str());
                 return string("Unable to parse field ID");
@@ -360,7 +363,7 @@ string LirCommand::receiveAddSensorCommand(const string command){
             d.name = string(tokens[i+1]);
             d.units = string(tokens[i+2]);
             d.isNum = boost::iequals(string(tokens[i+3]), "numeric");
-            fields[fieldID] = d;
+            fields.push_back(d);
         }
         // Create and start sensor so that clients can read it whenever
         EthSensor* sensor = new EthSensor(sensorID, serialServer, port, sensorName, lineEnd, delimeter, fields, startChars, endChars);
@@ -373,19 +376,68 @@ string LirCommand::receiveAddSensorCommand(const string command){
     return string();
 }
 
-/*
+string LirCommand::receiveGetSensorValue(const string command){
+    vector<string> tokens;
+    boost::escaped_list_separator<char> sep('\\',' ','\"');
+    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
+    BOOST_FOREACH(string t, tok){
+        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
+        tokens.push_back(t);
+    }
+
+    if(tokens.size() >= 3){
+        unsigned int sensorID = 0;
+        try{
+             sensorID = boost::lexical_cast<unsigned int>(tokens[1]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid sensor ID passed to Lir Command Parser: %s is not an integer.",tokens[1].c_str());
+            return string("-1");
+        }
+
+        unsigned int fieldID = 0;
+        try{
+             fieldID = boost::lexical_cast<unsigned int>(tokens[2]);
+        } catch ( boost::bad_lexical_cast const &){
+            syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
+            return string("-1\r\n");
+        }
+
+        if(this->sensorMems.count(sensorID) > 0){
+            EthSensorReadingSet set = this->sensorMems[sensorID]->getCurrentReading();
+            if(set.readingsByFieldID.count(fieldID) > 0){
+                stringstream ss;
+                if(set.readingsByFieldID[fieldID].isNum){
+                    ss << set.readingsByFieldID[fieldID].num << "\r\n"; 
+                } else {
+                    ss << set.readingsByFieldID[fieldID].text << "\r\n";
+                }
+                return ss.str();
+            } else {
+                syslog(LOG_DAEMON|LOG_ERR,"Cannot find field with ID %d. Reading set vector length: %d.  Reading set map length: %d", fieldID, set.readings.size(), set.readingsByFieldID.size());
+                return string("-1\r\n");
+            }
+        } else {
+            syslog(LOG_DAEMON|LOG_ERR,"Cannot find sensor with ID %d", sensorID);
+            return string("-1\r\n");
+        }
+    } else {
+        syslog(LOG_DAEMON|LOG_ERR,"Invalid number of arguments passed to receive get sensor value");
+        return string("-1\r\n");
+    }
+}
+
 vector<EthSensorReadingSet> LirCommand::getSensorSets(){
     vector<EthSensorReadingSet> retVal;
 
     commandMutex.lock();
-    for(unsigned int i=0; i < sensorMems.size(); ++i){
-        retVal.push_back(sensorMems[i]->getCurrentReading());
+    map<unsigned int, MemoryEthSensorListener*>::iterator mt;
+    for (mt=this->sensorMems.begin(); mt != this->sensorMems.end(); ++mt){
+        retVal.push_back(mt->second->getCurrentReading());
     }
     commandMutex.unlock();
 
     return retVal;
 }
-*/
 
 void LirCommand::findLastDeploymentStation(){
     DIR* dp;
@@ -408,7 +460,10 @@ void LirCommand::findLastDeploymentStation(){
         if(stat(tempPath.c_str(),&fileStats) == 0){
             time = fileStats.st_mtime;
             syslog(LOG_DAEMON|LOG_INFO,"Found file %s with time %d",tempPath.c_str(),time);
-            if(time > maxTime){
+            if(dir->d_name[0] == '.'){
+                syslog(LOG_DAEMON|LOG_INFO,"Ignoring hidden directory");
+                continue;
+            } else if (time > maxTime){
                 maxTime = time;
                 fileName = string(dir->d_name);
             }
@@ -446,57 +501,4 @@ void LirCommand::findLastDeploymentStation(){
         syslog(LOG_DAEMON|LOG_INFO,"No deployment directory found, using name %s",this->generateFolderName().c_str());
     }
 }
-
-/*
-EthSensor* processSensorNodeProps(DOMNodeList* sensorProps){
-    EthSensor* retVal = NULL;
-    if(sensorProps){
-        map<string,string> params;
-        unsigned int port;
-        vector<FieldDescriptor> fields;
-        for(unsigned int i=0; i < sensorProps->getLength(); ++i){
-            DOMNode* node = sensorProps->item(i);
-            string key(XMLString::transcode(node->getNodeName()));
-            string val(XMLString::transcode(node->getTextContent()));
-
-            // Only element to be handled differently is the fields element
-            if(key.compare("Fields") == 0){
-                DOMNodeList* fieldsNodes = node->getChildNodes();
-                for(unsigned int j=0; j < fieldsNodes->getLength(); ++j){
-                    FieldDescriptor d;
-                    DOMNode* fieldN = fieldsNodes->item(j);
-                    if(XMLString::equals(fieldN->getNodeName(),XMLString::transcode("Field"))){
-                        DOMNamedNodeMap* attrs = fieldN->getAttributes();
-                        DOMNode* numericA = attrs->getNamedItem(XMLString::transcode("numeric"));
-                        DOMNode* nameA = attrs->getNamedItem(XMLString::transcode("name"));
-                        d.isNum = XMLString::equals(numericA->getTextContent(),XMLString::transcode("true"));
-                        d.name = string(XMLString::transcode(nameA->getTextContent()));
-                        syslog(LOG_DAEMON|LOG_INFO,"Found field. Name: %s, Numeric?: %s.",d.name.c_str(),d.isNum?"TRUE":"FALSE");
-                        fields.push_back(d);
-                    }
-                }
-            } else {
-                params[key] = val;
-            }
-        }
-        try{
-            port = boost::lexical_cast<unsigned int>(params["Port"]);
-        } catch ( boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR,"Invalid port number in configuration file: %s is not an integer.",params["Port"].c_str());
-            return retVal;
-        }
-
-        params["StartChars"] = unescape(params["StartChars"]);
-        params["EndChars"] = unescape(params["EndChars"]);
-        params["LineEnd"] = unescape(params["LineEnd"]);
-        params["Delimeter"] = unescape(params["Delimeter"]);
-
-        syslog(LOG_DAEMON|LOG_INFO,"Read %s sensor configuration as - Address: %s:%d, StartChars: %s, EndChars: %s, Delimeter: %s, LineEnd: %s, Fields: %s.",params["Name"].c_str(),params["IPAddress"].c_str(),port,params["StartChars"].c_str(),params["EndChars"].c_str(),params["Delimeter"].c_str(),params["LineEnd"].c_str(),params["Fields"].c_str()); 
-
-        retVal = new EthSensor(params["IPAddress"],port,params["Name"],params["LineEnd"],params["Delimeter"],fields,params["StartChars"],params["EndChars"]);
-    }
-    return retVal;
-}
-*/
-
 

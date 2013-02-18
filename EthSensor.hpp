@@ -13,6 +13,7 @@
 using namespace std;
 
 typedef struct{
+    unsigned int id;
     bool isNum;
     string name;
     string units;
@@ -27,7 +28,7 @@ private:
     string name;
     string lineEnd;
     string delimeter;
-    map<unsigned int, FieldDescriptor> fields;
+    vector<FieldDescriptor> fields;
     string startChars;
     string endChars;
     vector<IEthSensorListener *> listeners;
@@ -47,7 +48,7 @@ private:
     void parseLine(const boost::system::error_code& ec, size_t bytes_transferred);
 
 public:
-    EthSensor(const unsigned int _sensorID, const string IP, const unsigned int port, const string _name, const string _lineEnd, const string _delimeter, const map<unsigned int, FieldDescriptor> _fields, const string _startChars, const string _endChars);
+    EthSensor(const unsigned int _sensorID, const string IP, const unsigned int port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars);
     ~EthSensor();
     bool Connect();
     bool Disconnect();

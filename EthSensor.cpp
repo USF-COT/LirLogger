@@ -12,7 +12,7 @@
 
 using namespace std;
 
-EthSensor::EthSensor(const unsigned int _sensorID, const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const map<unsigned int, FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
+EthSensor::EthSensor(const unsigned int _sensorID, const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
     running = false;
 
 }
@@ -52,6 +52,7 @@ bool EthSensor::Connect(){
             boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             readThread = new boost::thread(boost::ref(*this));
             this->setRunning(true);
+            syslog(LOG_DAEMON|LOG_INFO,"%s Sensor Connected", name.c_str());
         } catch (std::exception& e){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
         }
@@ -79,7 +80,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
                 EthSensorReading r;
-                i = i < fields.size()-1 ? ++i : i=0;
+//                syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d: %s", i, t.c_str());
                 r.field = fields[i].name;
                 r.text = t;
                 if(fields[i].isNum){
@@ -91,6 +92,8 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                     }
                 }
                 set.readings.push_back(r);
+                set.readingsByFieldID[fields[i].id] = r;
+                i = i < fields.size()-1 ? ++i : i=0;
             }
 
             // Pass Reading to Handlers            
