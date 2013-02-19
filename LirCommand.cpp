@@ -138,9 +138,7 @@ bool LirCommand::startLogger(){
     if(!this->running && this->deploymentSet){
         commandMutex.lock();
         if(this->camera) this->camera->start();
-        for(unsigned int i=0; i < sensors.size(); ++i){
-            sensors[i]->Connect();
-        }
+        // TODO: Set sensor listeners loggers to logging here
         this->running = true;
         commandMutex.unlock();
         return true;
@@ -158,9 +156,7 @@ bool LirCommand::stopLogger(){
     if(running){
         commandMutex.lock();
         if(this->camera) this->camera->stop();
-        for(unsigned int i=0; i < sensors.size(); ++i){
-            sensors[i]->Disconnect();
-        }
+        // TODO: Set sensor listeners to not logging here
         this->running = false;
         commandMutex.unlock();
     }
