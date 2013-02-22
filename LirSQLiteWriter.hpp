@@ -21,13 +21,17 @@ class LirSQLiteWriter : public IEthSensorListener{
         string insertStmt;
         vector<FieldDescriptor> fields;
 
+        bool logging;
+
         void initDatabase(string outputFolder);
     
     public:
         LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
         ~LirSQLiteWriter();
         virtual void sensorStarting();
+        void startLogging();
         virtual void processReading(const EthSensorReadingSet set);
+        void stopLogging();
         virtual void sensorStopping();
         void changeFolder(string outputFolder);
 };

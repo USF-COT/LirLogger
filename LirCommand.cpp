@@ -138,7 +138,10 @@ bool LirCommand::startLogger(){
     if(!this->running && this->deploymentSet){
         commandMutex.lock();
         if(this->camera) this->camera->start();
-        // TODO: Set sensor listeners loggers to logging here
+        map<unsigned int, LirSQLiteWriter*>::iterator wt;
+        for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
+            wt->second->startLogging();
+        }
         this->running = true;
         commandMutex.unlock();
         return true;
@@ -156,7 +159,10 @@ bool LirCommand::stopLogger(){
     if(running){
         commandMutex.lock();
         if(this->camera) this->camera->stop();
-        // TODO: Set sensor listeners to not logging here
+        map<unsigned int, LirSQLiteWriter*>::iterator wt;
+        for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
+            wt->second->stopLogging();
+        }
         this->running = false;
         commandMutex.unlock();
     }
@@ -248,8 +254,9 @@ void LirCommand::setListenersOutputFolder(){
     syslog(LOG_DAEMON|LOG_INFO,"Changing tiff writer path.");
     if(this->writer) this->writer->changeFolder(fullPath);
     syslog(LOG_DAEMON|LOG_INFO,"Changing SQLite Writer paths.");
-    for(unsigned int i=0; i < sensors.size(); ++i){
-        sensorWriters[i]->changeFolder(fullPath);
+    map<unsigned int, LirSQLiteWriter*>::iterator wt;
+    for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
+        wt->second->changeFolder(fullPath);
     }
 }
 
@@ -288,22 +295,8 @@ string LirCommand::receiveClearSensorsCommand(const string command){
     }
 
     // Clear sensor lists
-    map<unsigned int, EthSensor*>::iterator it;
-    for (it=this->sensors.begin(); it != this->sensors.end(); ++it){
-        delete it->second;
-    }
     sensors.clear();
-
-    map<unsigned int, LirSQLiteWriter*>::iterator wt;
-    for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
-        delete wt->second;
-    }
     sensorWriters.clear();
-
-    map<unsigned int, MemoryEthSensorListener*>::iterator mt;
-    for (mt=this->sensorMems.begin(); mt != this->sensorMems.end(); ++mt){
-        delete mt->second;
-    }
     sensorMems.clear();
 
     return string();
@@ -365,9 +358,16 @@ string LirCommand::receiveAddSensorCommand(const string command){
         EthSensor* sensor = new EthSensor(sensorID, serialServer, port, sensorName, lineEnd, delimeter, fields, startChars, endChars);
         sensor->Connect();
         this->sensors[sensorID] = sensor;
+
+        // Add Memory Listener
         MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
         sensors[sensorID]->addListener(memListener);
         sensorMems[sensorID] = memListener;
+
+        // Add SQLite Listener
+        string fullPath = this->generateFolderName();
+        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
+        this->sensorWriters[sensor->getID()] = sensorWriter;
     }
     return string();
 }

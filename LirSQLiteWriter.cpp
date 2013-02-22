@@ -52,19 +52,26 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     pathMutex.unlock();
 }
 
-LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor){
+LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), logging(false){
     initDatabase(outputDirectory);
     sensor->addListener(this);
 }
 
 LirSQLiteWriter::~LirSQLiteWriter(){
+    this->stopLogging();
 }
 
 void LirSQLiteWriter::sensorStarting(){
-    syslog(LOG_DAEMON|LOG_INFO, "Opening sqlite3 database to %s",dbPath.c_str());
-    pathMutex.lock();
-    sqlite3_open(dbPath.c_str(),&db);
-    pathMutex.unlock();
+}
+
+void LirSQLiteWriter::startLogging(){
+    if(!this->logging){
+        syslog(LOG_DAEMON|LOG_INFO, "Opening sqlite3 database to %s",dbPath.c_str());
+        pathMutex.lock();
+        sqlite3_open(dbPath.c_str(),&db);
+        this->logging = true;
+        pathMutex.unlock();
+    }
 }
 
 void LirSQLiteWriter::changeFolder(string outputFolder){
@@ -72,6 +79,9 @@ void LirSQLiteWriter::changeFolder(string outputFolder){
 }
 
 void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
+    if(!this->logging)
+        return; // Do nothing if not logging
+
     pathMutex.lock();
     if(db == NULL) // If the database is not open, try to open it again
         sqlite3_open(dbPath.c_str(),&db);
@@ -114,10 +124,16 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
     pathMutex.unlock();
 }
 
+void LirSQLiteWriter::stopLogging(){
+    if(this->logging){
+        pathMutex.lock();
+        if(db) sqlite3_close(db);
+        db = NULL;
+        pathMutex.unlock();
+        this->logging = false;
+        syslog(LOG_DAEMON|LOG_INFO, "Sqlite3 database @ %s closed.",dbPath.c_str());
+    }
+}
+
 void LirSQLiteWriter::sensorStopping(){
-    pathMutex.lock();
-    if(db) sqlite3_close(db);
-    db = NULL;
-    pathMutex.unlock();
-    syslog(LOG_DAEMON|LOG_INFO, "Sqlite3 database @ %s closed.",dbPath.c_str());
 }

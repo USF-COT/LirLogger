@@ -76,7 +76,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             boost::algorithm::trim(line);
 
             unsigned int i=0;
-            boost::char_separator<char> sep(delimeter.c_str());
+            boost::char_separator<char> sep(delimeter.c_str(), "", boost::drop_empty_tokens);
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
                 EthSensorReading r;
@@ -93,7 +93,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                 }
                 set.readings.push_back(r);
                 set.readingsByFieldID[fields[i].id] = r;
-                i = i < fields.size() ? ++i : i=0;
+                i = i++ < fields.size()-1 ? i : i=0;
             }
 
             // Pass Reading to Handlers            
