@@ -43,10 +43,10 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     is << " VALUES " << qMarks.str();
 
     string query = ss.str();
+    insertStmt = is.str();
     syslog(LOG_DAEMON|LOG_INFO, "Creating database for sensor %s.  Query: %s.  Data INSERT stmt: %s",sensor->getName().c_str(),query.c_str(), insertStmt.c_str());
 
     if(sqlite3_exec(db,query.c_str(),NULL,NULL,&errMsg) == SQLITE_OK){
-        insertStmt = is.str();
         syslog(LOG_DAEMON|LOG_INFO, "Database created successfully");
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "SQLite create database failed for sensor %s.  Query: %s. Message: %s.",sensor->getName().c_str(),query.c_str(),errMsg);
@@ -60,6 +60,7 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
 LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
     initDatabase(outputDirectory);
     sensor->addListener(this);
+    this->lastRowTimeLogged = time(NULL);
 }
 
 LirSQLiteWriter::~LirSQLiteWriter(){
@@ -84,8 +85,8 @@ void LirSQLiteWriter::changeFolder(string outputFolder){
 }
 
 void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
-    if(!this->logging)
-        return; // Do nothing if not logging
+    if(!this->logging || set.time == this->lastRowTimeLogged)
+        return; // Do nothing if not logging or if this is too high of a resolution
 
     pathMutex.lock();
     if(db == NULL) // If the database is not open, try to open it again
@@ -102,6 +103,7 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
             sqlite3_bind_int64(pStmt,3,(int64_t)frameIDs.second);
 
             // Fill in the rest of the fields
+            unsigned int insertIndex = 0; // Need to keep this seperate due to possiblity of ignore columns
             for(unsigned int i=0; i < set.readings.size(); ++i){
                 if (boost::iequals(fields[i].name, "ignore"))
                     continue;
@@ -114,15 +116,17 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
                     } else {
                         syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[i].name.c_str());
                     }
-                    sqlite3_bind_double(pStmt,i+4,val);
+                    sqlite3_bind_double(pStmt,insertIndex+4,val);
                 } else { // INSERT as text if text field
-                    sqlite3_bind_text(pStmt,i+4,reading.text.c_str(),reading.text.size(),SQLITE_TRANSIENT);
+                    sqlite3_bind_text(pStmt,insertIndex+4,reading.text.c_str(),reading.text.size(),SQLITE_TRANSIENT);
                 }
+                insertIndex++;
             }
             if(sqlite3_step(pStmt) == SQLITE_ERROR){
                 syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for %s sensor.  Error: %s.",set.sensorName.c_str(),sqlite3_errmsg(db));
             }
             sqlite3_finalize(pStmt);
+            this->lastRowTimeLogged = set.time;
         } else {
             syslog(LOG_DAEMON|LOG_ERR, "Unable to create prepared statement to INSERT readings for sensor %s.  Error: %s",set.sensorName.c_str(),sqlite3_errmsg(db));
         }    

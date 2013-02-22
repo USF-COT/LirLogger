@@ -377,7 +377,6 @@ string LirCommand::receiveGetSensorValue(const string command){
     boost::escaped_list_separator<char> sep('\\',' ','\"');
     boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
     BOOST_FOREACH(string t, tok){
-        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
         tokens.push_back(t);
     }
 
@@ -400,16 +399,20 @@ string LirCommand::receiveGetSensorValue(const string command){
 
         if(this->sensorMems.count(sensorID) > 0){
             EthSensorReadingSet set = this->sensorMems[sensorID]->getCurrentReading();
+/*
+            for(int i=0; i < set.readings.size(); ++i){
+                if(set.readings[i].isNum)
+                    syslog(LOG_DAEMON|LOG_INFO, "Reading %d: %f %s", i, set.readings[i].num, set.readings[i].text.c_str());
+                else
+                    syslog(LOG_DAEMON|LOG_INFO, "Reading %d: %s", i, set.readings[i].text.c_str());
+            }
+*/
             if(set.readings.size() > 0 && order_id < set.readings.size()){
                 stringstream ss;
-                if(set.readings[order_id].isNum){
-                    ss << set.readings[order_id].num << "\r\n"; 
-                } else {
-                    ss << set.readings[order_id].text << "\r\n";
-                }
+                ss << set.readings[order_id].text << "\r\n";
                 return ss.str();
             } else {
-                syslog(LOG_DAEMON|LOG_ERR,"Order ID %d out of range. Reading set vector length: %d.  Reading set map length: %d", order_id, set.readings.size(), set.readingsByFieldID.size());
+                syslog(LOG_DAEMON|LOG_ERR,"Order ID %d out of range. Reading set vector length: %d", order_id, set.readings.size());
                 return string("-1\r\n");
             }
         } else {

@@ -21,6 +21,7 @@ class LirSQLiteWriter : public IEthSensorListener{
         string insertStmt;
         vector<FieldDescriptor> fields;
 
+        time_t lastRowTimeLogged;
         bool logging;
 
         void initDatabase(string outputFolder);
