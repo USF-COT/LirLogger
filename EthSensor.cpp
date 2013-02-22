@@ -93,7 +93,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                 }
                 set.readings.push_back(r);
                 set.readingsByFieldID[fields[i].id] = r;
-                i = i < fields.size()-1 ? ++i : i=0;
+                i = i < fields.size() ? ++i : i=0;
             }
 
             // Pass Reading to Handlers            
