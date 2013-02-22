@@ -390,9 +390,9 @@ string LirCommand::receiveGetSensorValue(const string command){
             return string("-1");
         }
 
-        unsigned int fieldID = 0;
+        unsigned int order_id = 0;
         try{
-             fieldID = boost::lexical_cast<unsigned int>(tokens[2]);
+             order_id = boost::lexical_cast<unsigned int>(tokens[2]) - 1; // User sees 1 based index so we need to scale it down
         } catch ( boost::bad_lexical_cast const &){
             syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
             return string("-1\r\n");
@@ -400,16 +400,16 @@ string LirCommand::receiveGetSensorValue(const string command){
 
         if(this->sensorMems.count(sensorID) > 0){
             EthSensorReadingSet set = this->sensorMems[sensorID]->getCurrentReading();
-            if(set.readingsByFieldID.count(fieldID) > 0){
+            if(set.readings.size() > 0 && order_id < set.readings.size()){
                 stringstream ss;
-                if(set.readingsByFieldID[fieldID].isNum){
-                    ss << set.readingsByFieldID[fieldID].num << "\r\n"; 
+                if(set.readings[order_id].isNum){
+                    ss << set.readings[order_id].num << "\r\n"; 
                 } else {
-                    ss << set.readingsByFieldID[fieldID].text << "\r\n";
+                    ss << set.readings[order_id].text << "\r\n";
                 }
                 return ss.str();
             } else {
-                syslog(LOG_DAEMON|LOG_ERR,"Cannot find field with ID %d. Reading set vector length: %d.  Reading set map length: %d", fieldID, set.readings.size(), set.readingsByFieldID.size());
+                syslog(LOG_DAEMON|LOG_ERR,"Order ID %d out of range. Reading set vector length: %d.  Reading set map length: %d", order_id, set.readings.size(), set.readingsByFieldID.size());
                 return string("-1\r\n");
             }
         } else {

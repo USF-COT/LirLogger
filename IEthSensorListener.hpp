@@ -20,7 +20,6 @@ typedef struct{
     time_t time;
     string sensorName;
     vector<EthSensorReading> readings;
-    map<unsigned int, EthSensorReading> readingsByFieldID;
 }EthSensorReadingSet;
 
 class IEthSensorListener{

@@ -6,6 +6,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <boost/algorithm/string.hpp>
 
 void LirSQLiteWriter::initDatabase(string outputFolder){
     char* errMsg;
@@ -21,16 +22,18 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     stringstream ss;
     stringstream is;
     stringstream qMarks;
-    ss << "CREATE TABLE IF NOT EXISTS main." << sensor->getName() << "-" << sensor->getID() << " (unix_timestamp INTEGER PRIMARY KEY NOT NULL, folder_id INTEGER NOT NULL, frame_id INTEGER NOT NULL";
-    is << "INSERT INTO main." << sensor->getName() << " (unix_timestamp, folder_id, frame_id";
+    ss << "CREATE TABLE IF NOT EXISTS main.`" << sensor->getName() << "-" << sensor->getID() << "` (unix_timestamp INTEGER PRIMARY KEY NOT NULL, folder_id INTEGER NOT NULL, frame_id INTEGER NOT NULL";
+    is << "INSERT INTO main.`" << sensor->getName() << "-" << sensor->getID() << "` (unix_timestamp, folder_id, frame_id";
     qMarks << " (?,?,?";
     this->fields = sensor->getFieldDescriptors();
     vector <FieldDescriptor>::iterator it;
     for(it = fields.begin(); it != fields.end(); ++it){
         FieldDescriptor field = *it;
+        if (boost::iequals(field.name, "ignore"))
+            continue; // Skip IGNORE fields
         string type = field.isNum ? "REAL":"TEXT";
-        ss << ", " << field.name << " " << type << " NOT NULL";
-        is << ", " << field.name;
+        ss << ", `" << field.name << "-" << field.id << "` " << type << " NOT NULL";
+        is << ", `" << field.name << "-" << field.id << "`";
         qMarks << ",?";
     }
     ss << ")"; // Close column descriptions
@@ -40,9 +43,11 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     is << " VALUES " << qMarks.str();
 
     string query = ss.str();
+    syslog(LOG_DAEMON|LOG_INFO, "Creating database for sensor %s.  Query: %s.  Data INSERT stmt: %s",sensor->getName().c_str(),query.c_str(), insertStmt.c_str());
+
     if(sqlite3_exec(db,query.c_str(),NULL,NULL,&errMsg) == SQLITE_OK){
         insertStmt = is.str();
-        syslog(LOG_DAEMON|LOG_INFO, "Created database for sensor %s.  Query: %s.  Data INSERT stmt: %s",sensor->getName().c_str(),query.c_str(), insertStmt.c_str());
+        syslog(LOG_DAEMON|LOG_INFO, "Database created successfully");
     } else {
         syslog(LOG_DAEMON|LOG_ERR, "SQLite create database failed for sensor %s.  Query: %s. Message: %s.",sensor->getName().c_str(),query.c_str(),errMsg);
     }
@@ -52,7 +57,7 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     pathMutex.unlock();
 }
 
-LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), logging(false){
+LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
     initDatabase(outputDirectory);
     sensor->addListener(this);
 }
@@ -98,6 +103,9 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
 
             // Fill in the rest of the fields
             for(unsigned int i=0; i < set.readings.size(); ++i){
+                if (boost::iequals(fields[i].name, "ignore"))
+                    continue;
+
                 EthSensorReading reading = set.readings[i];
                 if(fields[i].isNum){ // INSERT double value if number field
                     double val = -1;
