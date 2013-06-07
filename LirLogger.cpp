@@ -6,6 +6,10 @@
  * 
  */ 
 
+#include <zmq.hpp>
+#include <string>
+#include <iostream>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -45,17 +49,18 @@ int main(){
     // Setup SIGTERM Handler
     signal(SIGTERM,catch_term); 
 
-    LirTCPServer server(io_service);
+    // Setup ZMQ RESP Server
+    zmq::context_t context(1);
+    zmq::socket_t socket(context, ZMQ_REP);
+    socket.bind("tcp://*:5555");
 
-    // Setup server socket
     while(daemonrunning){
-        // Keep io_service running through errors if daemonrunning is still true
-        try{
-            io_service.run();
-        } catch (std::exception& e){
-            syslog(LOG_DAEMON|LOG_ERR,e.what());
-        }
+        zmq::message_t request;
+
+        socket.recv(&request);
     }
+
+    // Housekeeping
     com->stopLogger(); // Just in case it was left running
     syslog(LOG_DAEMON|LOG_INFO,"Daemon Exited Successfully.");
     closelog();

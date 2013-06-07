@@ -114,7 +114,7 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
                     if(reading.isNum){
                        val = reading.num; 
                     } else {
-                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[i].name.c_str());
+//                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[i].name.c_str());
                     }
                     sqlite3_bind_double(pStmt,insertIndex+4,val);
                 } else { // INSERT as text if text field
@@ -122,16 +122,16 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
                 }
                 insertIndex++;
             }
-            if(sqlite3_step(pStmt) == SQLITE_ERROR){
-                syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for %s sensor.  Error: %s.",set.sensorName.c_str(),sqlite3_errmsg(db));
-            }
+//            if(sqlite3_step(pStmt) == SQLITE_ERROR){
+//                syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for %s sensor.  Error: %s.",set.sensorName.c_str(),sqlite3_errmsg(db));
+//            }
             sqlite3_finalize(pStmt);
             this->lastRowTimeLogged = set.time;
         } else {
             syslog(LOG_DAEMON|LOG_ERR, "Unable to create prepared statement to INSERT readings for sensor %s.  Error: %s",set.sensorName.c_str(),sqlite3_errmsg(db));
         }    
     } else {
-        syslog(LOG_DAEMON|LOG_ERR, "Fewer readings than expected (%d) received (%d) for SQLiteWriter.  Disregarding this reading.", fields.size(), set.readings.size());
+//        syslog(LOG_DAEMON|LOG_ERR, "Fewer readings than expected (%d) received (%d) for SQLiteWriter.  Disregarding this reading.", fields.size(), set.readings.size());
     }
     pathMutex.unlock();
 }
