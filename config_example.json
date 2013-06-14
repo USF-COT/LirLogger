@@ -1,0 +1,337 @@
+{
+    "system": {
+        "loggers": [
+            {
+                "name": "UDR 1",
+                "notes": null,
+                "hostname": "131.247.138.20",
+                "serial_server_host": "131.247.138.21",
+                "configuration": {
+                    "description": "",
+                    "camera_num_buffers": 64,
+                    "is_flow_meter_connected": false,
+                    "camera": {
+                        "name": "2x1",
+                        "notes": null,
+                        "image_width": 4096,
+                        "MAC": "00-11-1c-f0-0f-09",
+                        "image_height": 9250,
+                        "id": 2
+                    },
+                    "sensors": [
+                        {
+                            "end_chars": "",
+                            "calibration_notes": null,
+                            "delimeter": " ",
+                            "line_end": "\\n",
+                            "id": 1,
+                            "name": "Pitch and Roll",
+                            "start_chars": "",
+                            "notes": null,
+                            "serial_server_port": 4000,
+                            "fields": [
+                                {
+                                    "sensor_field_label_id": 1,
+                                    "is_numeric": false,
+                                    "name": "IGNORE",
+                                    "output_order": 1,
+                                    "min": 20,
+                                    "units": "IGNORE",
+                                    "max": 30,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 2,
+                                    "is_numeric": false,
+                                    "name": "Roll",
+                                    "output_order": 2,
+                                    "min": -20,
+                                    "units": "degrees",
+                                    "max": 8,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 1,
+                                    "is_numeric": false,
+                                    "name": "IGNORE",
+                                    "output_order": 3,
+                                    "min": 0,
+                                    "units": "IGNORE",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 3,
+                                    "is_numeric": true,
+                                    "name": "Pitch",
+                                    "output_order": 4,
+                                    "min": -20,
+                                    "units": "degrees",
+                                    "max": 20,
+                                    "notes": null
+                                }
+                            ],
+                            "serial_number": "1"
+                        },
+                        {
+                            "end_chars": "",
+                            "calibration_notes": null,
+                            "delimeter": ",",
+                            "line_end": "\\n",
+                            "id": 2,
+                            "name": "Battery Monitor",
+                            "start_chars": "",
+                            "notes": null,
+                            "serial_server_port": 4001,
+                            "fields": [
+                                {
+                                    "sensor_field_label_id": 4,
+                                    "is_numeric": true,
+                                    "name": "Selected Battery Stack",
+                                    "output_order": 1,
+                                    "min": 0,
+                                    "units": "stack",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 2,
+                                    "min": 20,
+                                    "units": "volts",
+                                    "max": 26,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 3,
+                                    "min": 20,
+                                    "units": "volts",
+                                    "max": 26,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 4,
+                                    "min": 11,
+                                    "units": "volts",
+                                    "max": 26,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 5,
+                                    "min": 20,
+                                    "units": "volts",
+                                    "max": 26,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 6,
+                                    "is_numeric": false,
+                                    "name": "Stack Status",
+                                    "output_order": 6,
+                                    "min": 0,
+                                    "units": "status",
+                                    "max": 100,
+                                    "notes": null
+                                }
+                            ],
+                            "serial_number": "1"
+                        },
+                        {
+                            "end_chars": "",
+                            "calibration_notes": null,
+                            "delimeter": ",",
+                            "line_end": " 201",
+                            "id": 4,
+                            "name": "Seabird CTD No CR/LF",
+                            "start_chars": "",
+                            "notes": null,
+                            "serial_server_port": 4002,
+                            "fields": [
+                                {
+                                    "sensor_field_label_id": 7,
+                                    "is_numeric": true,
+                                    "name": "Temperature",
+                                    "output_order": 1,
+                                    "min": 0,
+                                    "units": "C",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 8,
+                                    "is_numeric": true,
+                                    "name": "Conductivity",
+                                    "output_order": 2,
+                                    "min": 0,
+                                    "units": "S/m",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 9,
+                                    "is_numeric": true,
+                                    "name": "Pressure",
+                                    "output_order": 3,
+                                    "min": 0,
+                                    "units": "db",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 4,
+                                    "min": 0,
+                                    "units": "volts",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 5,
+                                    "min": 0,
+                                    "units": "volts",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 6,
+                                    "min": 0,
+                                    "units": "volts",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 7,
+                                    "min": 0,
+                                    "units": "volts",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 10,
+                                    "is_numeric": true,
+                                    "name": "Salinity",
+                                    "output_order": 8,
+                                    "min": 0,
+                                    "units": "psu",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 11,
+                                    "is_numeric": true,
+                                    "name": "Sound Velocity",
+                                    "output_order": 9,
+                                    "min": 0,
+                                    "units": "m/s",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 12,
+                                    "is_numeric": false,
+                                    "name": "Date",
+                                    "output_order": 10,
+                                    "min": 0,
+                                    "units": "%d %b %Y",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 13,
+                                    "is_numeric": false,
+                                    "name": "Time",
+                                    "output_order": 11,
+                                    "min": 0,
+                                    "units": "%H:%M:%S",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 14,
+                                    "is_numeric": true,
+                                    "name": "Density",
+                                    "output_order": 12,
+                                    "min": 0,
+                                    "units": "kg/m3",
+                                    "max": 100,
+                                    "notes": null
+                                },
+                                {
+                                    "sensor_field_label_id": 5,
+                                    "is_numeric": false,
+                                    "name": "Voltage",
+                                    "output_order": 13,
+                                    "min": 0,
+                                    "units": "volts",
+                                    "max": 100,
+                                    "notes": null
+                                }
+                            ],
+                            "serial_number": "1"
+                        }
+                    ],
+                    "id": 2,
+                    "name": "2x1 Base "
+                },
+                "id": 1
+            }
+        ],
+        "notes": null,
+        "id": 3,
+        "name": "2x1 Solo UDR 1"
+    },
+    "notes": null,
+    "station": {
+        "abbreviation": "TEST006",
+        "notes": "First run with 2x1",
+        "id": 5,
+        "name": "Test 006"
+    },
+    "id": 5,
+    "cruise": {
+        "vessel": {
+            "operator": {
+                "city": "St. Petersburg",
+                "address_first_line": "140 7th Avenue South",
+                "name": "Florida Institute of Oceanography",
+                "zip": "33701",
+                "state": "FL",
+                "notes": null,
+                "id": 1,
+                "address_second_line": null
+            },
+            "notes": null,
+            "id": 1,
+            "name": "Weatherbird II"
+        },
+        "cruise_start": "2013-02-25",
+        "name": "SIPPER Trimming Cruise",
+        "objective": "Trim and test the new towbody",
+        "cruise_end": "2013-03-06",
+        "notes": null,
+        "id": 1,
+        "cruise_location": "Gulf of Mexico Middle Grounds"
+    }
+}

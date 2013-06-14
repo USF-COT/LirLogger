@@ -14,6 +14,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <json/json.h>
 
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
@@ -83,12 +84,12 @@ class LirCommand{
 
         void findLastDeploymentStation();
         string generateFolderName();
+        void setupUDR(Json::Value& config);
         void setListenersOutputFolder();
 
     public:
         static LirCommand* Instance();
         ~LirCommand();
-        bool loadConfig(char* configPath);
         bool startLogger();
         bool stopLogger();
         string parseCommand(const string message);

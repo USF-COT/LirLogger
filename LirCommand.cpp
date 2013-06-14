@@ -5,6 +5,7 @@
  */
 
 #include "LirCommand.hpp"
+#include "ConfigREST.hpp"
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -180,6 +181,7 @@ string LirCommand::parseCommand(const string command){
 }
 
 string LirCommand::receiveSetDeploymentCommand(const string command){
+    unsigned int sentDeploymentID;
     vector<string> tokens;
     boost::escaped_list_separator<char> sep('\\',' ','\"');
     boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
@@ -188,22 +190,25 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
         tokens.push_back(t);
     }
 
-    if(tokens.size() >= 6){
+    if(tokens.size() >= 3){
         this->authority = string(tokens[1]);
         try{
-            this->deploymentID = boost::lexical_cast<unsigned int>(tokens[2]);
+            sentDeploymentID = boost::lexical_cast<unsigned int>(tokens[2]);
         } catch ( boost::bad_lexical_cast const &){
             syslog(LOG_DAEMON|LOG_ERR,"Invalid deployment ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
             return string("Unable to parse deployment ID");
         }
-        this->cruise = string(tokens[3]);
-        this->station = string(tokens[4]);
-        this->UDR = string(tokens[5]);
-
-        this->deploymentSet = true;
-
-        // Pass new folder to listeners
-        setListenersOutputFolder();
+        this->UDR = string(tokens[3]);
+        
+        if (this->deploymentID != sentDeploymentID){
+            this->deploymentID = sentDeploymentID;
+            Json::Value config;
+            if(loadConfiguration(&config, this->authority)){
+                setupUDR(config);
+                setListenersOutputFolder();
+                syslog(LOG_DAEMON|LOG_INFO, "%s set deployment ID to %d and UDR name to %s", this->authority.c_str(), this->deploymentID, this->UDR.c_str());
+            }
+        }
     } 
     return string();
 }
@@ -246,6 +251,10 @@ string LirCommand::generateFolderName(){
         syslog(LOG_DAEMON|LOG_ERR, "Unable to generate logger path.  Deployment details not set.");
         return string();        
     }
+}
+
+void LirCommand::setupUDR(Json::Value& config){
+    return;
 }
 
 void LirCommand::setListenersOutputFolder(){
