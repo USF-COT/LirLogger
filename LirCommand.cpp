@@ -172,6 +172,7 @@ bool LirCommand::stopLogger(){
 string LirCommand::parseCommand(const string command){
     string key = command.substr(0,command.find_first_of(" \n\r"));
     if(commands.count(key) > 0){
+        syslog(LOG_DAEMON|LOG_INFO, "Received recognized %s command", command.c_str());
         return commands[key](this,command);
     } else {
         stringstream response;
@@ -254,7 +255,16 @@ string LirCommand::generateFolderName(){
 }
 
 void LirCommand::setupUDR(Json::Value& config){
-    return;
+    const Json::Value loggers = config["system"]["loggers"];
+
+    if(!loggers.isNull()){
+        for(int i = 0; i < loggers.size(); i++){
+            if (loggers[i]["name"] == this->UDR){
+                // Load configuration here
+                syslog(LOG_DAEMON|LOG_INFO, "Found configuration for %s", this->UDR.c_str());
+            }
+        }
+    }
 }
 
 void LirCommand::setListenersOutputFolder(){
