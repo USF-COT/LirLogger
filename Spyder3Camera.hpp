@@ -15,6 +15,7 @@ class Spyder3Camera{
 private:
     char* MAC;
     unsigned int pipelineBufferMax;
+
     vector<ISpyder3Listener*> listeners;
     vector<ISpyder3StatsListener*> statsListeners;
     
@@ -30,6 +31,8 @@ public:
 
     string getMAC();
     unsigned int getNumBuffers();
+    unsigned int getImageWidth();
+    unsigned int getImageHeight();
     
     void addListener(ISpyder3Listener *l);
     void addStatsListener(ISpyder3StatsListener *l);

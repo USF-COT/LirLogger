@@ -9,4 +9,4 @@
 
 // Partially based on: http://curl.haxx.se/libcurl/c/getinmemory.html
 
-bool loadConfiguration(Json::Value* root, const std::string host);
+bool loadConfiguration(Json::Value* root, const std::string host, const unsigned int deploymentID);

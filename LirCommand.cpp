@@ -172,7 +172,7 @@ bool LirCommand::stopLogger(){
 string LirCommand::parseCommand(const string command){
     string key = command.substr(0,command.find_first_of(" \n\r"));
     if(commands.count(key) > 0){
-        syslog(LOG_DAEMON|LOG_INFO, "Received recognized %s command", command.c_str());
+        syslog(LOG_DAEMON|LOG_INFO, "Received recognized command: %s", command.c_str());
         return commands[key](this,command);
     } else {
         stringstream response;
@@ -191,25 +191,32 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
         tokens.push_back(t);
     }
 
-    if(tokens.size() >= 3){
+    if(tokens.size() == 5){
         this->authority = string(tokens[1]);
+        this->authorityIP = string(tokens[2]);
         try{
-            sentDeploymentID = boost::lexical_cast<unsigned int>(tokens[2]);
+            sentDeploymentID = boost::lexical_cast<unsigned int>(tokens[3]);
         } catch ( boost::bad_lexical_cast const &){
             syslog(LOG_DAEMON|LOG_ERR,"Invalid deployment ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
             return string("Unable to parse deployment ID");
         }
-        this->UDR = string(tokens[3]);
+        this->UDR = string(tokens[4]);
         
         if (this->deploymentID != sentDeploymentID){
             this->deploymentID = sentDeploymentID;
             Json::Value config;
-            if(loadConfiguration(&config, this->authority)){
-                setupUDR(config);
-                setListenersOutputFolder();
+            if(loadConfiguration(&config, this->authorityIP, this->deploymentID)){
+                this->setupUDR(config);
+                //setListenersOutputFolder();
                 syslog(LOG_DAEMON|LOG_INFO, "%s set deployment ID to %d and UDR name to %s", this->authority.c_str(), this->deploymentID, this->UDR.c_str());
+            } else {
+                syslog(LOG_DAEMON|LOG_ERR, "Error loading configuration");
             }
+        } else {
+            syslog(LOG_DAEMON|LOG_INFO, "Already setup for deployment %d", this->deploymentID);
         }
+    } else {
+        syslog(LOG_DAEMON|LOG_ERR, "Invalid number of arguments sent to receiveSetDeployment.  Expecting 3, received %d", tokens.size()-1);
     } 
     return string();
 }
@@ -254,17 +261,73 @@ string LirCommand::generateFolderName(){
     }
 }
 
-void LirCommand::setupUDR(Json::Value& config){
-    const Json::Value loggers = config["system"]["loggers"];
+void LirCommand::addSensor(const Json::Value& logger, const Json::Value& sensorConfig){
+    unsigned int sensorID = sensorConfig["id"].asUInt();
+    string sensorName = sensorConfig["name"].asString();
+    string startChars = unescape(sensorConfig["start_chars"].asString());
+    string endChars = unescape(sensorConfig["end_chars"].asString());
+    string delimeter = unescape(sensorConfig["delimeter"].asString());
+    string lineEnd = unescape(sensorConfig["line_end"].asString());
+
+    string serialServer = logger["serial_server_host"].asString();
+    unsigned int port = sensorConfig["serial_server_port"].asUInt();
+
+    vector <FieldDescriptor> fields;
+    const Json::Value fieldsJSON = sensorConfig["fields"];
+    for(unsigned int i=0; i < fieldsJSON.size(); i++){
+        FieldDescriptor d;
+        d.id = fieldsJSON[i]["output_order"].asUInt();
+        d.name = fieldsJSON[i]["name"].asString();
+        d.units = fieldsJSON[i]["units"].asString();
+        d.isNum = fieldsJSON[i]["is_numeric"].asBool();
+        fields.push_back(d);
+    }
+
+    EthSensor* sensor = new EthSensor(sensorID, serialServer, port, sensorName, lineEnd, delimeter, fields, startChars, endChars);
+    sensor->Connect();
+    this->sensors[sensorID] = sensor;
+
+    MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
+    sensors[sensorID]->addListener(memListener);
+    sensorMems[sensorID] = memListener;
+
+    string fullPath = this->generateFolderName();
+    LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
+    this->sensorWriters[sensor->getID()] = sensorWriter;
+}
+
+string LirCommand::setupUDR(const Json::Value& response){
+    const Json::Value loggers = response["system"]["loggers"];
 
     if(!loggers.isNull()){
         for(int i = 0; i < loggers.size(); i++){
             if (loggers[i]["name"] == this->UDR){
                 // Load configuration here
                 syslog(LOG_DAEMON|LOG_INFO, "Found configuration for %s", this->UDR.c_str());
+                if(this->running){
+                    return "Cannot reconfigure while system is running.  Please stop it and try again.";
+                }
+
+                // Setup Cruise
+                this->cruise = response["cruise"]["name"].asString();
+                this->station = response["station"]["abbreviation"].asString();
+
+                // Setup Camera
+                const Json::Value config = loggers[i]["configuration"];
+                const Json::Value camera_config = config["camera"];
+                unsigned int num_buffers = config["camera_num_buffers"].asUInt();
+                this->camera = new Spyder3Camera(camera_config["MAC"].asString().c_str(), num_buffers);
+                this->connectCameraListeners();
+
+                // Setup Sensors
+                const Json::Value sensors = config["sensors"];
+                for(int j=0; j < sensors.size(); j++){
+                    this->addSensor(loggers[i], sensors[j]);
+                }
             }
         }
     }
+    return "";
 }
 
 void LirCommand::setListenersOutputFolder(){

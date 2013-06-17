@@ -41,6 +41,7 @@ class LirCommand{
 
     // Deployment Settings
     string authority;
+    string authorityIP;
     unsigned int deploymentID;
     string cruise;
     string station;
@@ -84,7 +85,8 @@ class LirCommand{
 
         void findLastDeploymentStation();
         string generateFolderName();
-        void setupUDR(Json::Value& config);
+        void addSensor(const Json::Value& logger, const Json::Value& sensorConfig);
+        string setupUDR(const Json::Value& config);
         void setListenersOutputFolder();
 
     public:

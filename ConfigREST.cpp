@@ -7,6 +7,7 @@
 #include <json/json.h>
 
 #include <string.h>
+#include <sstream>
 
 // Partially based on: http://curl.haxx.se/libcurl/c/getinmemory.html
 
@@ -32,7 +33,7 @@ size_t WriteMemoryCallback(void *contents, size_t size, size_t nmemb, void *user
     return realsize;
 }
 
-bool loadConfiguration(Json::Value* root, const std::string host){
+bool loadConfiguration(Json::Value* root, const std::string host, const unsigned int deploymentID){
     CURL *handle;
     CURLcode res;
     bool loadSuccessful = false;
@@ -44,15 +45,23 @@ bool loadConfiguration(Json::Value* root, const std::string host){
 
     handle = curl_easy_init();
     if(handle){
-        curl_easy_setopt(handle, CURLOPT_URL, host.c_str());
+        std::stringstream ss;
+        ss << host << "/deployment/"  << deploymentID;
+        std::string RESTEndpoint = ss.str();
+        curl_easy_setopt(handle, CURLOPT_URL, RESTEndpoint.c_str());
         curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
         curl_easy_setopt(handle, CURLOPT_WRITEDATA, (void*)&chunk);
         res = curl_easy_perform(handle);
         if(res == CURLE_OK){
+            syslog(LOG_DAEMON|LOG_INFO, "Parsing JSON: %s", chunk.memory);
             loadSuccessful = reader.parse(chunk.memory, *root);
+        } else {
+            syslog(LOG_DAEMON|LOG_ERR, "curl_easy_perform() error: %s", curl_easy_strerror(res));
         } 
 
         curl_easy_cleanup(handle);
+    } else {
+        syslog(LOG_DAEMON|LOG_ERR, "Unable to create CURL handle");
     }
     free(chunk.memory);
 
