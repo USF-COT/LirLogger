@@ -76,13 +76,6 @@ class LirCommand{
 
         string receiveSetDeploymentCommand(const string message);
 
-        string receiveSetCameraCommand(const string command);
-
-        string receiveClearSensorsCommand(const string command);
-        string receiveAddSensorCommand(const string command);
-        string receiveGetSensorValue(const string command);
-        //string receiveGetSensorValueHistory(const string command);
-
         void findLastDeploymentStation();
         string generateFolderName();
         void addSensor(const Json::Value& logger, const Json::Value& sensorConfig);

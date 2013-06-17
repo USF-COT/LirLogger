@@ -60,13 +60,6 @@ LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DE
     commands["status"] = &LirCommand::receiveStatusCommand;
 
     commands["deployment"] = &LirCommand::receiveSetDeploymentCommand;
-
-    commands["camera"] = &LirCommand::receiveSetCameraCommand;
-
-    commands["clear_sensors"] = &LirCommand::receiveClearSensorsCommand;
-    commands["add_sensor"] = &LirCommand::receiveAddSensorCommand;
-    commands["get_value"] = &LirCommand::receiveGetSensorValue;
-    //commands["get_value_history"] = &LirCommand::receiveGetSensorValueHistory;
 }
 
 LirCommand::~LirCommand(){
@@ -221,32 +214,6 @@ string LirCommand::receiveSetDeploymentCommand(const string command){
     return string();
 }
 
-string LirCommand::receiveSetCameraCommand(const string command){
-    vector<string> tokens;
-    boost::escaped_list_separator<char> sep('\\',' ','\"');
-    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
-    BOOST_FOREACH(string t, tok){
-        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
-        tokens.push_back(t);
-    }
-
-    if(tokens.size() >= 3){
-        if(this->running){
-            return string("Cannot setup camera while system is running.  Please stop the system before changing any settings.");
-        }
-        string MAC = string(tokens[1]);
-        int numBuffers = 32;
-        try{
-            numBuffers = boost::lexical_cast<unsigned int>(tokens[2]);
-        } catch (boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR, "You must pass an integer for the number of buffers. Using default 32.");
-        }
-        this->camera = new Spyder3Camera(MAC.c_str(), numBuffers);
-        this->connectCameraListeners();
-    }
-    return string();
-}
-
 // Config parsing functions follow
 string LirCommand::generateFolderName(){
     if (this->deploymentSet){
@@ -320,6 +287,10 @@ string LirCommand::setupUDR(const Json::Value& response){
                 this->connectCameraListeners();
 
                 // Setup Sensors
+                // Clear sensor lists
+                sensors.clear();
+                sensorWriters.clear();
+                sensorMems.clear();
                 const Json::Value sensors = config["sensors"];
                 for(int j=0; j < sensors.size(); j++){
                     this->addSensor(loggers[i], sensors[j]);
@@ -366,155 +337,6 @@ Spyder3Stats LirCommand::getCameraStats(){
 
     commandMutex.lock();
     retVal = this->camStats->getCurrentStats();
-    commandMutex.unlock();
-
-    return retVal;
-}
-
-string LirCommand::receiveClearSensorsCommand(const string command){
-    if(this->running){
-        return string("Cannot change logger settings while it is running.  Please stop the system and try again.");
-    }
-
-    // Clear sensor lists
-    sensors.clear();
-    sensorWriters.clear();
-    sensorMems.clear();
-
-    return string();
-}
-
-string LirCommand::receiveAddSensorCommand(const string command){
-    if(this->running){
-        return string("Cannot change logger settings while it is running.  Please stop the system and try again.");
-    }
-
-    vector<string> tokens;
-    boost::escaped_list_separator<char> sep('\\',' ','\"');
-    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
-    BOOST_FOREACH(string t, tok){
-        syslog(LOG_DAEMON|LOG_INFO,"Token: %s",t.c_str());
-        tokens.push_back(t);
-    }
-
-    if(tokens.size() >= 9){
-        string authority = string(tokens[1]);
-        unsigned int sensorID = 0;
-        try{
-             sensorID = boost::lexical_cast<unsigned int>(tokens[2]);
-        } catch ( boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR,"Invalid sensor ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
-            return string("Unable to parse sensor ID");
-        }
-        string sensorName = string(tokens[3]);
-        string startChars = unescape(string(tokens[4]));
-        string endChars = unescape(string(tokens[5]));
-        string delimeter = unescape(string(tokens[6]));
-        string lineEnd = unescape(string(tokens[7]));
-
-        string serialServer = string(tokens[8]);
-        unsigned int port = 4000;
-        try{
-             port = boost::lexical_cast<unsigned int>(tokens[9]);
-        } catch ( boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR,"Invalid serial server port passed to Lir Command Parser: %s is not an integer.",tokens[8].c_str());
-            return string("Unable to parse serial server port");
-        }
-
-        vector <FieldDescriptor> fields;
-        for(int i=10; i < tokens.size()-2; i+=4){
-            FieldDescriptor d;
-            d.id = 0;
-            try{
-                d.id  = boost::lexical_cast<unsigned int>(tokens[i]);
-            } catch ( boost::bad_lexical_cast const &){
-                syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[i].c_str());
-                return string("Unable to parse field ID");
-            }
-            d.name = string(tokens[i+1]);
-            d.units = string(tokens[i+2]);
-            d.isNum = boost::iequals(string(tokens[i+3]), "numeric");
-            fields.push_back(d);
-        }
-        // Create and start sensor so that clients can read it whenever
-        EthSensor* sensor = new EthSensor(sensorID, serialServer, port, sensorName, lineEnd, delimeter, fields, startChars, endChars);
-        sensor->Connect();
-        this->sensors[sensorID] = sensor;
-
-        // Add Memory Listener
-        MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
-        sensors[sensorID]->addListener(memListener);
-        sensorMems[sensorID] = memListener;
-
-        // Add SQLite Listener
-        string fullPath = this->generateFolderName();
-        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
-        this->sensorWriters[sensor->getID()] = sensorWriter;
-    }
-    return string();
-}
-
-string LirCommand::receiveGetSensorValue(const string command){
-    vector<string> tokens;
-    boost::escaped_list_separator<char> sep('\\',' ','\"');
-    boost::tokenizer<boost::escaped_list_separator <char> > tok(command,sep);
-    BOOST_FOREACH(string t, tok){
-        tokens.push_back(t);
-    }
-
-    if(tokens.size() >= 3){
-        unsigned int sensorID = 0;
-        try{
-             sensorID = boost::lexical_cast<unsigned int>(tokens[1]);
-        } catch ( boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR,"Invalid sensor ID passed to Lir Command Parser: %s is not an integer.",tokens[1].c_str());
-            return string("-1");
-        }
-
-        unsigned int order_id = 0;
-        try{
-             order_id = boost::lexical_cast<unsigned int>(tokens[2]) - 1; // User sees 1 based index so we need to scale it down
-        } catch ( boost::bad_lexical_cast const &){
-            syslog(LOG_DAEMON|LOG_ERR,"Invalid field ID passed to Lir Command Parser: %s is not an integer.",tokens[2].c_str());
-            return string("-1\r\n");
-        }
-
-        if(this->sensorMems.count(sensorID) > 0){
-            EthSensorReadingSet set = this->sensorMems[sensorID]->getCurrentReading();
-/*
-            for(int i=0; i < set.readings.size(); ++i){
-                if(set.readings[i].isNum)
-                    syslog(LOG_DAEMON|LOG_INFO, "Reading %d: %f %s", i, set.readings[i].num, set.readings[i].text.c_str());
-                else
-                    syslog(LOG_DAEMON|LOG_INFO, "Reading %d: %s", i, set.readings[i].text.c_str());
-            }
-*/
-            if(set.readings.size() > 0 && order_id < set.readings.size()){
-                stringstream ss;
-                ss << set.readings[order_id].text << "\r\n";
-                return ss.str();
-            } else {
-                syslog(LOG_DAEMON|LOG_ERR,"Order ID %d out of range. Reading set vector length: %d", order_id, set.readings.size());
-                return string("-1\r\n");
-            }
-        } else {
-            syslog(LOG_DAEMON|LOG_ERR,"Cannot find sensor with ID %d", sensorID);
-            return string("-1\r\n");
-        }
-    } else {
-        syslog(LOG_DAEMON|LOG_ERR,"Invalid number of arguments passed to receive get sensor value");
-        return string("-1\r\n");
-    }
-}
-
-vector<EthSensorReadingSet> LirCommand::getSensorSets(){
-    vector<EthSensorReadingSet> retVal;
-
-    commandMutex.lock();
-    map<unsigned int, MemoryEthSensorListener*>::iterator mt;
-    for (mt=this->sensorMems.begin(); mt != this->sensorMems.end(); ++mt){
-        retVal.push_back(mt->second->getCurrentReading());
-    }
     commandMutex.unlock();
 
     return retVal;

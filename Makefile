@@ -6,7 +6,6 @@ SRC_CPPS = \
            Spyder3TiffWriter.cpp \
            EthSensor.cpp \
            LirSQLiteWriter.cpp \
-           LirTCPServer.cpp \
            MemoryCameraStatsListener.cpp \
            MemoryEthSensorListener.cpp \
 
