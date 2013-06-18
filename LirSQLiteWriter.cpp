@@ -84,7 +84,7 @@ void LirSQLiteWriter::changeFolder(string outputFolder){
     initDatabase(outputFolder);
 }
 
-void LirSQLiteWriter::processReading(const EthSensorReadingSet set){
+void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
     if(!this->logging || set.time == this->lastRowTimeLogged)
         return; // Do nothing if not logging or if this is too high of a resolution
 

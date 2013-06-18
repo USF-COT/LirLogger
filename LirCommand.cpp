@@ -6,6 +6,8 @@
 
 #include "LirCommand.hpp"
 #include "ConfigREST.hpp"
+#include "ZMQCameraStatsPublisher.hpp"
+#include "ZMQEthSensorPublisher.hpp"
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -13,6 +15,7 @@
 
 #include <syslog.h>
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <map>
 
@@ -58,6 +61,7 @@ LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DE
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
     commands["status"] = &LirCommand::receiveStatusCommand;
+    commands["publishers"] = &LirCommand::receivePublishersCommand;
 
     commands["deployment"] = &LirCommand::receiveSetDeploymentCommand;
 }
@@ -118,6 +122,19 @@ string LirCommand::receiveStatusCommand(const string command){
     commandMutex.unlock();
 
     return resString;
+}
+
+string LirCommand::receivePublishersCommand(const string command){
+    stringstream responseStream;
+
+    responseStream << "C:" << camStatsPublisher->getStreamPort();
+
+    map<unsigned int, ZMQEthSensorPublisher*>::iterator it;
+    for (it = this->sensorPublishers.begin(); it != this->sensorPublishers.end(); it++){
+        responseStream << "," << it->first << ":" << it->second->getStreamPort();
+    }
+
+    return responseStream.str();
 }
 
 string LirCommand::receiveStartCommand(const string command){
@@ -254,9 +271,9 @@ void LirCommand::addSensor(const Json::Value& logger, const Json::Value& sensorC
     sensor->Connect();
     this->sensors[sensorID] = sensor;
 
-    MemoryEthSensorListener* memListener = new MemoryEthSensorListener();
-    sensors[sensorID]->addListener(memListener);
-    sensorMems[sensorID] = memListener;
+    ZMQEthSensorPublisher* zmqPublisher = new ZMQEthSensorPublisher(START_PORT+2+this->sensorPublishers.size());
+    sensor->addListener(zmqPublisher);
+    this->sensorPublishers[sensorID] = zmqPublisher;
 
     string fullPath = this->generateFolderName();
     LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
@@ -272,29 +289,45 @@ string LirCommand::setupUDR(const Json::Value& response){
                 // Load configuration here
                 syslog(LOG_DAEMON|LOG_INFO, "Found configuration for %s", this->UDR.c_str());
                 if(this->running){
-                    return "Cannot reconfigure while system is running.  Please stop it and try again.";
+                    syslog(LOG_DAEMON|LOG_INFO, "Logger was running for previous deployment.  Stopping old deployment and reconfiguring for new one.");
+                    this->stopLogger();
                 }
 
                 // Setup Cruise
                 this->cruise = response["cruise"]["name"].asString();
                 this->station = response["station"]["abbreviation"].asString();
 
+                // Clear sensor lists
+                this->sensors.clear();
+                this->sensorWriters.clear();
+                this->sensorPublishers.clear();
+
                 // Setup Camera
                 const Json::Value config = loggers[i]["configuration"];
                 const Json::Value camera_config = config["camera"];
                 unsigned int num_buffers = config["camera_num_buffers"].asUInt();
                 this->camera = new Spyder3Camera(camera_config["MAC"].asString().c_str(), num_buffers);
-                this->connectCameraListeners();
+                string fullPath = this->generateFolderName();
+                this->writer = new Spyder3TiffWriter(fullPath);
+                this->camera->addListener(this->writer);
+                this->camStats = new MemoryCameraStatsListener();
+                this->camera->addStatsListener(this->camStats);
+                if(this->camStatsPublisher)
+                    delete this->camStatsPublisher;
+                this->camStatsPublisher = new ZMQCameraStatsPublisher(START_PORT+1);
 
                 // Setup Sensors
-                // Clear sensor lists
-                sensors.clear();
-                sensorWriters.clear();
-                sensorMems.clear();
                 const Json::Value sensors = config["sensors"];
                 for(int j=0; j < sensors.size(); j++){
                     this->addSensor(loggers[i], sensors[j]);
                 }
+
+                // Store JSON Response in Deployment Folder for Next Startup
+                string configJSONPath = this->generateFolderName() + "/config.json";
+                ofstream configJSONOF;
+                configJSONOF.open(configJSONPath.c_str());
+                configJSONOF << response;
+                configJSONOF.close();
             }
         }
     }
@@ -310,25 +343,6 @@ void LirCommand::setListenersOutputFolder(){
     map<unsigned int, LirSQLiteWriter*>::iterator wt;
     for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
         wt->second->changeFolder(fullPath);
-    }
-}
-
-void LirCommand::connectCameraListeners(){
-    string fullPath = this->generateFolderName();
-    this->writer = new Spyder3TiffWriter(fullPath);
-    this->camera->addListener(this->writer);
-    this->camStats = new MemoryCameraStatsListener();
-    this->camera->addStatsListener(this->camStats);
-}
-
-void LirCommand::connectSensorSQLWriters(){
-    string fullPath = this->generateFolderName();
-    map<unsigned int, EthSensor*>::iterator it;
-    for(it = this->sensors.begin(); it != this->sensors.end(); it++){
-        EthSensor* sensor = it->second;
-        syslog(LOG_DAEMON|LOG_INFO,"Adding SQLite Writer.");
-        LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, sensor, fullPath);
-        this->sensorWriters[sensor->getID()] = sensorWriter;
     }
 }
 
@@ -391,6 +405,16 @@ void LirCommand::findLastDeploymentStation(){
             this->deploymentSet = true;
 
             syslog(LOG_DAEMON|LOG_ERR,"Set to log to %s",this->generateFolderName().c_str());
+
+            string configPath = this->generateFolderName() + "/config.json";
+            ifstream configStream;
+            configStream.open(configPath.c_str());
+            Json::Value root;
+            Json::Reader reader;
+
+            if(reader.parse(configStream, root)){
+                this->setupUDR(root);
+            }
         } else {
             syslog(LOG_DAEMON|LOG_ERR,"Unable to parse directory correctly.");
         }

@@ -13,7 +13,7 @@ private:
 
 public:
     MemoryCameraStatsListener(){};
-    virtual void processStats(const Spyder3Stats* stats);
+    virtual void processStats(const Spyder3Stats& stats);
     Spyder3Stats getCurrentStats();
 };
 

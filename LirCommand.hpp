@@ -24,8 +24,14 @@
 #include "Spyder3TiffWriter.hpp"
 #include "MemoryCameraStatsListener.hpp"
 #include "MemoryEthSensorListener.hpp"
+#include "ZMQCameraStatsPublisher.hpp"
+#include "ZMQEthSensorPublisher.hpp"
 
 #include "LirSQLiteWriter.hpp"
+
+// Camera Stats Publisher is on START_PORT+1
+// All sensors are on START_PORT+2 and above 
+#define START_PORT 5555
 
 using namespace std;
 
@@ -51,6 +57,7 @@ class LirCommand{
     Spyder3Camera* camera;
     Spyder3TiffWriter* writer;
     MemoryCameraStatsListener* camStats;
+    ZMQCameraStatsPublisher* camStatsPublisher;
     
 //    Spyder3FrameTracker* tracker;
 
@@ -58,6 +65,7 @@ class LirCommand{
     map <unsigned int, EthSensor *> sensors;
     map <unsigned int, LirSQLiteWriter *> sensorWriters;
     map <unsigned int, MemoryEthSensorListener *> sensorMems;
+    map <unsigned int, ZMQEthSensorPublisher *> sensorPublishers;
 
     // Parser Functions
     std::map<std::string, boost::function<string (LirCommand*,const string)> > commands;
@@ -71,6 +79,7 @@ class LirCommand{
         void connectSensorSQLWriters();
 
         string receiveStatusCommand(const string message);
+        string receivePublishersCommand(const string message);
         string receiveStartCommand(const string message);
         string receiveStopCommand(const string message);
 

@@ -13,7 +13,7 @@ MemoryEthSensorListener::~MemoryEthSensorListener(){
 void MemoryEthSensorListener::sensorStarting(){
 }
 
-void MemoryEthSensorListener::processReading(const EthSensorReadingSet set){
+void MemoryEthSensorListener::processReading(const EthSensorReadingSet& set){
     dataMutex.lock();
     currentSet = set;
     dataMutex.unlock();

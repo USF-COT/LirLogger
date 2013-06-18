@@ -13,7 +13,7 @@ typedef struct{
 class ISpyder3StatsListener{
     public:
         virtual ~ISpyder3StatsListener(){}
-        virtual void processStats(const Spyder3Stats* stats) = 0;
+        virtual void processStats(const Spyder3Stats& stats) = 0;
 };
 
 #endif

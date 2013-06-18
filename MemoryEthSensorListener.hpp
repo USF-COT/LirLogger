@@ -18,7 +18,7 @@ class MemoryEthSensorListener : public IEthSensorListener{
         MemoryEthSensorListener();
         ~MemoryEthSensorListener();
         virtual void sensorStarting();
-        virtual void processReading(const EthSensorReadingSet set);
+        virtual void processReading(const EthSensorReadingSet& set);
         virtual void sensorStopping();
 
         EthSensorReadingSet getCurrentReading();

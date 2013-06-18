@@ -67,3 +67,4 @@ bool loadConfiguration(Json::Value* root, const std::string host, const unsigned
 
     return loadSuccessful;
 }
+

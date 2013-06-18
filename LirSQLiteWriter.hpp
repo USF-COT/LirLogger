@@ -31,7 +31,7 @@ class LirSQLiteWriter : public IEthSensorListener{
         ~LirSQLiteWriter();
         virtual void sensorStarting();
         void startLogging();
-        virtual void processReading(const EthSensorReadingSet set);
+        virtual void processReading(const EthSensorReadingSet& set);
         void stopLogging();
         virtual void sensorStopping();
         void changeFolder(string outputFolder);

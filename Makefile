@@ -8,6 +8,8 @@ SRC_CPPS = \
            LirSQLiteWriter.cpp \
            MemoryCameraStatsListener.cpp \
            MemoryEthSensorListener.cpp \
+           ZMQEthSensorPublisher.cpp \
+           ZMQCameraStatsPublisher.cpp \
 
 #SRC_CPPS = \
 #           LirTest.cpp

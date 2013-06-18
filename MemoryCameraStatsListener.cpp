@@ -1,9 +1,9 @@
 
 #include "MemoryCameraStatsListener.hpp"
 
-void MemoryCameraStatsListener::processStats(const Spyder3Stats* stats){
+void MemoryCameraStatsListener::processStats(const Spyder3Stats& stats){
     dataMutex.lock();
-    currentStats = *stats;
+    currentStats = stats;
     dataMutex.unlock();
 }
 

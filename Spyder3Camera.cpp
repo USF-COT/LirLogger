@@ -236,7 +236,7 @@ void Spyder3Camera::operator() (){
 
                 statsListenerMutex.lock();
                 for(unsigned int i=0; i < statsListeners.size(); ++i){
-                    statsListeners[i]->processStats(&stats);
+                    statsListeners[i]->processStats(stats);
                 }
                 statsListenerMutex.unlock();
             }
