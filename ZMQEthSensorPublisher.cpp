@@ -21,15 +21,6 @@ void ZMQEthSensorPublisher::sensorStarting(){
 }
 
 void ZMQEthSensorPublisher::processReading(const EthSensorReadingSet& set){
-    /*
-    stringstream sensorIDStream;
-    sensorIDStream << set.sensorID;
-    string sensorID = sensorIDStream.str();
-    zmq::message_t sensorIDMessage(sensorID.size());
-    memcpy((void*)sensorIDMessage.data(), sensorID.data(), sensorID.size());
-    socket.send(sensorIDMessage, ZMQ_SNDMORE); 
-    */
-
     zmq::message_t sensorIDMessage(sizeof(set.sensorID));
     memcpy((void*)sensorIDMessage.data(), &set.sensorID, sizeof(set.sensorID));
     socket.send(sensorIDMessage, ZMQ_SNDMORE);
