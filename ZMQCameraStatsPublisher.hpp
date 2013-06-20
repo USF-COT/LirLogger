@@ -8,15 +8,12 @@
 
 class ZMQCameraStatsPublisher : public ISpyder3StatsListener, public IZMQPublisher{
 private:
-    unsigned int port;
-
     zmq::context_t context;
     zmq::socket_t socket;
 
 public:
-    ZMQCameraStatsPublisher(unsigned int _port);
+    ZMQCameraStatsPublisher();
     ~ZMQCameraStatsPublisher(){};
-    virtual unsigned int getStreamPort();
     virtual void processStats(const Spyder3Stats& stats);
 };
 

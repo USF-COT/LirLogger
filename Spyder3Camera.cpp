@@ -230,6 +230,7 @@ void Spyder3Camera::operator() (){
             // If there are stats listeners, send them the current statistics
             if(statsListeners.size() > 0){
                 Spyder3Stats stats;
+                stats.time = time(NULL);
                 lStreamParams->GetIntegerValue( "ImagesCount", stats.imageCount);
                 lStreamParams->GetFloatValue( "AcquisitionRateAverage",stats.frameRate);
                 lStreamParams->GetIntegerValue("PipelineBlocksDropped", stats.framesDropped);

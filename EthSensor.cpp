@@ -64,6 +64,7 @@ bool EthSensor::Connect(){
 void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
     EthSensorReadingSet set;
     set.time = time(NULL);
+    set.sensorID = this->sensorID;
     set.sensorName = this->name;
     if(!ec){
         runMutex.lock();
@@ -84,6 +85,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
                 r.fieldID = fields[i].id;
                 r.field = fields[i].name;
                 r.text = t;
+                boost::algorithm::trim(r.text);
                 if(fields[i].isNum){
                     try{
                         r.num = boost::lexical_cast<double>(t);

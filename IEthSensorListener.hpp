@@ -18,6 +18,7 @@ typedef struct{
 
 typedef struct{
     time_t time;
+    unsigned int sensorID;
     string sensorName;
     vector<EthSensorReading> readings;
 }EthSensorReadingSet;

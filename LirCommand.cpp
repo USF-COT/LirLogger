@@ -61,7 +61,6 @@ LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DE
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
     commands["status"] = &LirCommand::receiveStatusCommand;
-    commands["publishers"] = &LirCommand::receivePublishersCommand;
 
     commands["deployment"] = &LirCommand::receiveSetDeploymentCommand;
 }
@@ -122,19 +121,6 @@ string LirCommand::receiveStatusCommand(const string command){
     commandMutex.unlock();
 
     return resString;
-}
-
-string LirCommand::receivePublishersCommand(const string command){
-    stringstream responseStream;
-
-    responseStream << "C:" << camStatsPublisher->getStreamPort();
-
-    map<unsigned int, ZMQEthSensorPublisher*>::iterator it;
-    for (it = this->sensorPublishers.begin(); it != this->sensorPublishers.end(); it++){
-        responseStream << "," << it->first << ":" << it->second->getStreamPort();
-    }
-
-    return responseStream.str();
 }
 
 string LirCommand::receiveStartCommand(const string command){
@@ -271,7 +257,7 @@ void LirCommand::addSensor(const Json::Value& logger, const Json::Value& sensorC
     sensor->Connect();
     this->sensors[sensorID] = sensor;
 
-    ZMQEthSensorPublisher* zmqPublisher = new ZMQEthSensorPublisher(START_PORT+2+this->sensorPublishers.size());
+    ZMQEthSensorPublisher* zmqPublisher = new ZMQEthSensorPublisher();
     sensor->addListener(zmqPublisher);
     this->sensorPublishers[sensorID] = zmqPublisher;
 
@@ -314,7 +300,7 @@ string LirCommand::setupUDR(const Json::Value& response){
                 this->camera->addStatsListener(this->camStats);
                 if(this->camStatsPublisher)
                     delete this->camStatsPublisher;
-                this->camStatsPublisher = new ZMQCameraStatsPublisher(START_PORT+1);
+                this->camStatsPublisher = new ZMQCameraStatsPublisher();
 
                 // Setup Sensors
                 const Json::Value sensors = config["sensors"];

@@ -5,6 +5,7 @@
 #include <PvTypes.h>
 
 typedef struct{
+    time_t time;
     PvInt64 imageCount;
     PvInt64 framesDropped;
     double frameRate;
