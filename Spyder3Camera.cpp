@@ -124,6 +124,7 @@ void Spyder3Camera::operator() (){
         for( PvUInt32 y = 0; y < lDeviceCount ; y++ )
         {
             tempInfo = lInterface->GetDeviceInfo( y );
+            syslog(LOG_DAEMON|LOG_INFO, "Camera with %s MAC available", tempInfo->GetMACAddress().GetAscii());
             if(strlen(MAC) == strlen(tempInfo->GetMACAddress().GetAscii()) && strncmp(MAC,tempInfo->GetMACAddress().GetAscii(),strlen(MAC)) == 0){
                 lDeviceInfo = tempInfo;
                 break;
@@ -185,7 +186,7 @@ void Spyder3Camera::operator() (){
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
-    lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
+    //lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
 
     syslog(LOG_DAEMON|LOG_INFO,"Resetting timestamp counter..." );
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
@@ -207,6 +208,7 @@ void Spyder3Camera::operator() (){
         PvBuffer *lBuffer = NULL;
         PvResult  lOperationResult;
         PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
+        syslog(LOG_DAEMON|LOG_INFO, "%d x %d Images Expected", lWidth, lHeight);
 
         if ( lResult.IsOK() && lOperationResult.IsOK() )
         {

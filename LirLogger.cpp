@@ -30,11 +30,13 @@ int main(){
 
     openlog("LIRLOGGER",LOG_PID,0);
 
+    /*
     if(daemon(1,0)){
         syslog(LOG_DAEMON|LOG_ERR,"Error becoming daemon.  Error: %d  Exiting.",errno);
         exit(EXIT_FAILURE);
     }
     syslog(LOG_DAEMON|LOG_INFO,"Daemon running");
+    */
 
     // Initialize Lir Command 
     syslog(LOG_DAEMON|LOG_INFO,"Creating command instance.");
