@@ -3,9 +3,11 @@
 #define ISPYDER3STATSLISTENER_HPP
 
 #include <PvTypes.h>
+#include <string>
 
 typedef struct{
     time_t time;
+    unsigned int cameraID;
     PvInt64 imageCount;
     PvInt64 framesDropped;
     double frameRate;

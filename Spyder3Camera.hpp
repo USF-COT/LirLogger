@@ -13,6 +13,7 @@ using namespace std;
 class Spyder3Camera{
 
 private:
+    unsigned int cameraID;
     char* MAC;
     unsigned int pipelineBufferMax;
 
@@ -26,7 +27,7 @@ private:
     bool isRunning;
 
 public:
-    Spyder3Camera(const char* _MAC, unsigned int _pipelineBufferMax=32);
+    Spyder3Camera(unsigned int _cameraID, const char* _MAC, unsigned int _pipelineBufferMax=32);
     ~Spyder3Camera();
 
     string getMAC();

@@ -16,7 +16,7 @@
 #include <PvPixelType.h>
 #include <syslog.h>
 
-Spyder3Camera::Spyder3Camera(const char* _MAC, unsigned int _pipelineBufferMax) : pipelineBufferMax(_pipelineBufferMax){
+Spyder3Camera::Spyder3Camera(unsigned int _cameraID, const char* _MAC, unsigned int _pipelineBufferMax) : cameraID(_cameraID), pipelineBufferMax(_pipelineBufferMax){
     MAC = (char*) malloc(sizeof(char)*(strlen(_MAC)+1));
     strncpy(MAC,_MAC,strlen(_MAC)+1);
     isRunning = false;
@@ -141,7 +141,7 @@ void Spyder3Camera::operator() (){
 
     // Connect to the GEV Device
     PvDevice lDevice;
-    printf( "Connecting to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
+    syslog(LOG_DAEMON|LOG_INFO, "Connecting to %s\n", lDeviceInfo->GetMACAddress().GetAscii() );
     if ( !lDevice.Connect( lDeviceInfo ).IsOK() )
     {
         syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to %s", lDeviceInfo->GetMACAddress().GetAscii() );
@@ -171,6 +171,10 @@ void Spyder3Camera::operator() (){
 
     // Set the Buffer size and the Buffer count
     lPipeline.SetBufferSize( static_cast<PvUInt32>( lSize ) );
+    if(pipelineBufferMax > lStream.GetQueuedBufferMaximum()){
+        syslog(LOG_DAEMON|LOG_INFO, "Configured number of buffers (%d) greater than stream allowed maximum (%d)", pipelineBufferMax, lStream.GetQueuedBufferMaximum());
+        pipelineBufferMax = lStream.GetQueuedBufferMaximum();
+    }
     lPipeline.SetBufferCount(pipelineBufferMax); // Increase for high frame rate without missing block IDs
 
     // Have to set the Device IP destination to the Stream
@@ -186,7 +190,7 @@ void Spyder3Camera::operator() (){
 
     // TLParamsLocked is optional but when present, it MUST be set to 1
     // before sending the AcquisitionStart command
-    //lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
+    lDeviceParams->SetIntegerValue( "TLParamsLocked", 1 );
 
     syslog(LOG_DAEMON|LOG_INFO,"Resetting timestamp counter..." );
     lDeviceParams->ExecuteCommand( "GevTimestampControlReset" );
@@ -208,7 +212,6 @@ void Spyder3Camera::operator() (){
         PvBuffer *lBuffer = NULL;
         PvResult  lOperationResult;
         PvResult lResult = lPipeline.RetrieveNextBuffer( &lBuffer, 1000, &lOperationResult );
-        syslog(LOG_DAEMON|LOG_INFO, "%d x %d Images Expected", lWidth, lHeight);
 
         if ( lResult.IsOK() && lOperationResult.IsOK() )
         {
@@ -232,6 +235,7 @@ void Spyder3Camera::operator() (){
             // If there are stats listeners, send them the current statistics
             if(statsListeners.size() > 0){
                 Spyder3Stats stats;
+                stats.cameraID = cameraID;
                 stats.time = time(NULL);
                 lStreamParams->GetIntegerValue( "ImagesCount", stats.imageCount);
                 lStreamParams->GetFloatValue( "AcquisitionRateAverage",stats.frameRate);
@@ -243,6 +247,8 @@ void Spyder3Camera::operator() (){
                 }
                 statsListenerMutex.unlock();
             }
+        } else {
+            syslog(LOG_DAEMON|LOG_ERR, "Error receiving camera frame. %s: %s", lResult.GetCodeString().GetAscii(), lResult.GetDescription().GetAscii());
         }
 
         lPipeline.ReleaseBuffer( lBuffer );

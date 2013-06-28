@@ -2,11 +2,12 @@
 #ifndef LIRSQLITE3_HPP
 #define LIRSQLITE3_HPP
 
-#include "Spyder3TiffWriter.hpp"
 #include "EthSensor.hpp"
 #include "IEthSensorListener.hpp"
 #include "sqlite3.h"
 #include <time.h>
+
+#include "Spyder3ImageWriter.hpp"
 
 #include <boost/thread.hpp>
 
@@ -16,7 +17,7 @@ class LirSQLiteWriter : public IEthSensorListener{
         sqlite3 *db;
         string outputFolder;
         string dbPath;
-        Spyder3TiffWriter* camWriter; // Used to relate sensor readings to camera frames
+        Spyder3ImageWriter* camWriter; // Used to relate sensor readings to camera frames
         EthSensor* sensor;
         string insertStmt;
         vector<FieldDescriptor> fields;
@@ -27,7 +28,7 @@ class LirSQLiteWriter : public IEthSensorListener{
         void initDatabase(string outputFolder);
     
     public:
-        LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
+        LirSQLiteWriter(Spyder3ImageWriter* _camWriter, EthSensor* _sensor, string outputDirectory);
         ~LirSQLiteWriter();
         virtual void sensorStarting();
         void startLogging();

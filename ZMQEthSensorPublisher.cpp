@@ -3,6 +3,7 @@
 #include <vector>
 #include <iostream>
 #include "ZMQEthSensorPublisher.hpp"
+#include "ZMQSendUtils.hpp"
 
 ZMQEthSensorPublisher::ZMQEthSensorPublisher():context(1), socket(context, ZMQ_PUSH){
     stringstream socketAddressStream;
@@ -10,8 +11,8 @@ ZMQEthSensorPublisher::ZMQEthSensorPublisher():context(1), socket(context, ZMQ_P
     syslog(LOG_DAEMON|LOG_INFO, "Socket address %s",socketAddressStream.str().c_str());
     socket.connect(socketAddressStream.str().c_str());
 
-    //uint64_t highWaterMark = 4;
-    //socket.setsockopt(ZMQ_SNDHWM, &highWaterMark, sizeof highWaterMark);
+    int highWaterMark = 3;
+    socket.setsockopt(ZMQ_SNDHWM, &highWaterMark, sizeof(highWaterMark));
 }
 
 ZMQEthSensorPublisher::~ZMQEthSensorPublisher(){
@@ -21,14 +22,6 @@ void ZMQEthSensorPublisher::sensorStarting(){
 }
 
 void ZMQEthSensorPublisher::processReading(const EthSensorReadingSet& set){
-    zmq::message_t sensorIDMessage(sizeof(set.sensorID));
-    memcpy((void*)sensorIDMessage.data(), &set.sensorID, sizeof(set.sensorID));
-    socket.send(sensorIDMessage, ZMQ_SNDMORE);
-
-    zmq::message_t timeMessage(sizeof(set.time));
-    memcpy((void*)timeMessage.data(), &set.time, sizeof(set.time));
-    socket.send(timeMessage, ZMQ_SNDMORE);
-
     stringstream datastream;
 
     if(set.readings.size() > 0)
@@ -40,10 +33,7 @@ void ZMQEthSensorPublisher::processReading(const EthSensorReadingSet& set){
     }
 
     string dataString = datastream.str();
-
-    zmq::message_t message(dataString.size());
-    memcpy((void*)message.data(), dataString.data(), dataString.size());
-    socket.send(message, 0);
+    sendLirMessage(socket, 'S', set.sensorID, set.time, dataString);
 }
 
 void ZMQEthSensorPublisher::sensorStopping(){

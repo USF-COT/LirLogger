@@ -291,8 +291,10 @@ string LirCommand::setupUDR(const Json::Value& response){
                 // Setup Camera
                 const Json::Value config = loggers[i]["configuration"];
                 const Json::Value camera_config = config["camera"];
+
+                unsigned int cameraID = camera_config["id"].asUInt();
                 unsigned int num_buffers = config["camera_num_buffers"].asUInt();
-                this->camera = new Spyder3Camera(camera_config["MAC"].asString().c_str(), num_buffers);
+                this->camera = new Spyder3Camera(cameraID, camera_config["MAC"].asString().c_str(), num_buffers);
                 string fullPath = this->generateFolderName();
                 this->writer = new Spyder3TiffWriter(fullPath);
                 this->camera->addListener(this->writer);
@@ -301,6 +303,7 @@ string LirCommand::setupUDR(const Json::Value& response){
                 if(this->camStatsPublisher)
                     delete this->camStatsPublisher;
                 this->camStatsPublisher = new ZMQCameraStatsPublisher();
+                this->camera->addStatsListener(this->camStatsPublisher);
 
                 // Setup Sensors
                 const Json::Value sensors = config["sensors"];

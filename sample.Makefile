@@ -11,65 +11,76 @@ ifeq ($(EXEC),)
   $(error No executable file specified)
 endif
 
-CC=gcc
-CPP=g++
-LD=$(CPP)
+CC                  = gcc
+CPP                 = g++
+LD                  = $(CC)
+SRC_MOC             =
+MOC			        =
+RCC					=
 
-PUREGEV_ROOT ?= /opt/pleora/ebus_sdk
-
-INC_DIR         = $(PUREGEV_ROOT)/include
-LIB_DIR         = $(PUREGEV_ROOT)/lib
-QT_LIB_DIR      = $(PUREGEV_ROOT)/lib/qt/lib
+PUREGEV_ROOT        ?= ../../..
+CFLAGS              += -I$(PUREGEV_ROOT)/include
+CPPFLAGS            += -I$(PUREGEV_ROOT)/include
+LDFLAGS             += -L$(PUREGEV_ROOT)/lib	\
+						-lPvBase             	\
+             			-lPvDevice          	\
+             			-lPvBuffer          	\
+             			-lPvGUIUtils         	\
+             			-lPvGUI              	\
+             			-lPvPersistence      	\
+             			-lPvGenICam          	\
+             			-lPvStreamRaw        	\
+             			-lPvStream           	\
+             			-lPvTransmitterRaw   	\
+             			-lPvVirtualDevice
+PV_LIBRARY_PATH      = $(PUREGEV_ROOT)/lib
 
 ifneq ($(shell uname -m),x86_64)
-GENICAM_LIB_DIR = $(LIB_DIR)/genicam/bin/Linux32_i86
+	LDFLAGS            += -L$(PUREGEV_ROOT)/lib/genicam/bin/Linux32_i86
+	GEN_LIB_PATH        =  $(PUREGEV_ROOT)/lib/genicam/bin/Linux32_i86
 else
-GENICAM_LIB_DIR = $(LIB_DIR)/genicam/bin/Linux64_x64
+	LDFLAGS            += -L$(PUREGEV_ROOT)/lib/genicam/bin/Linux64_x64
+	GEN_LIB_PATH        =  $(PUREGEV_ROOT)/lib/genicam/bin/Linux64_x64
 endif
 
-
-LD_LIBRARY_PATH=$(LIB_DIR):$(GENICAM_LIB_DIR):$(QT_LIB_DIR)
+LD_LIBRARY_PATH        = $(GEN_LIB_PATH):$(OPENCV_LIBRARY_PATH):$(QT_LIBRARY_PATH):$(PV_LIBRARY_PATH)
 export LD_LIBRARY_PATH
 
 ifdef _DEBUG
-CFLAGS    += -g -D_DEBUG
-CPPFLAGS  += -g -D_DEBUG
+    CFLAGS    += -g -D_DEBUG
+    CPPFLAGS  += -g -D_DEBUG
 else
-CFLAGS    += -O3
-CPPFLAGS  += -O3
+    CFLAGS    += -O3
+    CPPFLAGS  += -O3
 endif
 
-CFLAGS    += -I$(INC_DIR) -D_UNIX_ -D_LINUX_
-CPPFLAGS  += -I$(INC_DIR) -D_UNIX_ -D_LINUX_
-LDFLAGS   += -L$(LIB_DIR)         \
-             -L$(GENICAM_LIB_DIR) \
-             -L/usr/local/lib     \
-             -lPvBase             \
-             -lPvDevice           \
-             -lPvBuffer           \
-			 -lPvGUI			  \
-             -lPvPersistence      \
-             -lPvGenICam          \
-             -lPvStreamRaw        \
-             -lPvStream           \
-             -lPvTransmitterRaw   \
-             -lPvVirtualDevice
+CFLAGS    += -D_UNIX_ -D_LINUX_
+CPPFLAGS  += -D_UNIX_ -D_LINUX_
 
 OBJS      += $(SRC_CPPS:%.cpp=%.o)
 OBJS      += $(SRC_CS:%.c=%.o)
 
 all: $(EXEC)
 
-$(EXEC): $(OBJS)
-	$(LD) $(OBJS) $(LDFLAGS) -o $@
+clean:
+	rm -rf $(OBJS) $(EXEC) $(SRC_MOC) $(SRC_QRC)
+
+moc_%.cxx: %.h
+	$(MOC) $< -o $@ 
+
+qrc_%.cxx: %.qrc
+	$(RCC) $< -o $@
+
+%.o: %.cxx
+	$(CPP) -c $(CPPFLAGS) -o $@ $<
 
 %.o: %.cpp
-	$(CPP) $< -c $(CPPFLAGS) -o $@ 
+	$(CPP) -c $(CPPFLAGS) -o $@ $<
 
 %.o: %.c
-	$(CC) $< -c $(CFLAGS) -o $@ 
+	$(CC) -c $(CFLAGS) -o $@ $<
 
-clean:
-	rm -rf $(OBJS) $(EXEC)
+$(EXEC): $(OBJS)
+	$(LD) $(LDFLAGS) $(OBJS) -o $@
 
 .PHONY: all clean

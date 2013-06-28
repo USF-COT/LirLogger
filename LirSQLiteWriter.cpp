@@ -57,7 +57,7 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     pathMutex.unlock();
 }
 
-LirSQLiteWriter::LirSQLiteWriter(Spyder3TiffWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
+LirSQLiteWriter::LirSQLiteWriter(Spyder3ImageWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
     initDatabase(outputDirectory);
     sensor->addListener(this);
     this->lastRowTimeLogged = time(NULL);
@@ -93,14 +93,15 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
         sqlite3_open(dbPath.c_str(),&db);
 
     if(set.readings.size() >= fields.size()){
-        pair<unsigned long,unsigned long> frameIDs = this->camWriter->getFolderFrameIDs();
+        unsigned long folderID = this->camWriter->getFolderID();
+        unsigned long frameID = this->camWriter->getFrameID();
         sqlite3_stmt* pStmt = NULL;
         if(sqlite3_prepare(db,insertStmt.c_str(),1024,&pStmt,NULL) == SQLITE_OK){
             // Place time in the beginning
             sqlite3_bind_int64(pStmt,1,(int64_t)set.time);
             // Place frame information
-            sqlite3_bind_int64(pStmt,2,(int64_t)frameIDs.first);
-            sqlite3_bind_int64(pStmt,3,(int64_t)frameIDs.second);
+            sqlite3_bind_int64(pStmt,2,(int64_t)folderID);
+            sqlite3_bind_int64(pStmt,3,(int64_t)frameID);
 
             // Fill in the rest of the fields
             unsigned int insertIndex = 0; // Need to keep this seperate due to possiblity of ignore columns
@@ -114,7 +115,7 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
                     if(reading.isNum){
                        val = reading.num; 
                     } else {
-//                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s as number for expected field %s.  Storing -1.",reading.field.c_str(),fields[i].name.c_str());
+                        syslog(LOG_DAEMON|LOG_ERR,"Shift error when parsing reading %s from sensor with ID %d as number for expected field %s.  Storing -1.",reading.field.c_str(), set.sensorID, fields[i].name.c_str());
                     }
                     sqlite3_bind_double(pStmt,insertIndex+4,val);
                 } else { // INSERT as text if text field
@@ -122,9 +123,9 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
                 }
                 insertIndex++;
             }
-//            if(sqlite3_step(pStmt) == SQLITE_ERROR){
-//                syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for %s sensor.  Error: %s.",set.sensorName.c_str(),sqlite3_errmsg(db));
-//            }
+            if(sqlite3_step(pStmt) == SQLITE_ERROR){
+                syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for %s sensor.  Error: %s.",set.sensorName.c_str(),sqlite3_errmsg(db));
+            }
             sqlite3_finalize(pStmt);
             this->lastRowTimeLogged = set.time;
         } else {

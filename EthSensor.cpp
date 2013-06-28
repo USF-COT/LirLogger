@@ -82,10 +82,10 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             BOOST_FOREACH(string t, tokens){
                 EthSensorReading r;
                 //syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
+                boost::algorithm::trim(t);
                 r.fieldID = fields[i].id;
                 r.field = fields[i].name;
                 r.text = t;
-                boost::algorithm::trim(r.text);
                 if(fields[i].isNum){
                     try{
                         r.num = boost::lexical_cast<double>(t);
