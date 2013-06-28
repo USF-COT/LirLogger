@@ -24,6 +24,7 @@
 #include "Spyder3ImageWriter.hpp"
 #include "Spyder3TiffWriter.hpp"
 #include "Spyder3PNGWriter.hpp"
+#include "Spyder3JPEGWriter.hpp"
 #include "MemoryCameraStatsListener.hpp"
 #include "MemoryEthSensorListener.hpp"
 #include "ZMQCameraStatsPublisher.hpp"

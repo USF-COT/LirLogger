@@ -6,6 +6,7 @@ SRC_CPPS = \
 		   Spyder3ImageWriter.cpp \
            Spyder3TiffWriter.cpp \
 		   Spyder3PNGWriter.cpp \
+		   Spyder3JPEGWriter.cpp \
            EthSensor.cpp \
            LirSQLiteWriter.cpp \
            MemoryCameraStatsListener.cpp \
@@ -23,7 +24,7 @@ EXEC     = LirLogger
 #CFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))
 #CPPFLAGS+=$(shell pkg-config  --cflags $(FFMPEG_LIBS))
 #LDFLAGS+=$(shell pkg-config --libs $(FFMPEG_LIBS))
-LDFLAGS+=-g -lcurl -ljson -ltiff -lzmq -lpng -lboost_thread -lboost_system -lboost_filesystem -lsqlite3
+LDFLAGS+=-g -lcurl -ljson -ltiff -lzmq -lpng -ljpeg -lboost_thread -lboost_system -lboost_filesystem -lsqlite3
 CPPFLAGS+=-D__STDC_CONSTANT_MACROS 
 
 include sample.Makefile

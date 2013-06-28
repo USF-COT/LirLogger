@@ -14,10 +14,6 @@ extern "C"{
 using namespace std;
 
 class Spyder3PNGWriter : public Spyder3ImageWriter{
-    private:
-        png_structp png_ptr;
-        png_infop info_ptr;
-
     public:
         typedef Spyder3ImageWriter super;
 

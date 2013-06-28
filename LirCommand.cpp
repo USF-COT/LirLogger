@@ -296,7 +296,7 @@ string LirCommand::setupUDR(const Json::Value& response){
                 unsigned int num_buffers = config["camera_num_buffers"].asUInt();
                 this->camera = new Spyder3Camera(cameraID, camera_config["MAC"].asString().c_str(), num_buffers);
                 string fullPath = this->generateFolderName();
-                this->writer = new Spyder3TiffWriter(fullPath);
+                this->writer = new Spyder3JPEGWriter(fullPath);
                 this->camera->addListener(this->writer);
                 this->camStats = new MemoryCameraStatsListener();
                 this->camera->addStatsListener(this->camStats);

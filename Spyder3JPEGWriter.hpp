@@ -3,28 +3,22 @@
 #define SPYDER3JPEGWRITER_HPP
 
 #include <string>
-#include <utility>
-#include <boost/thread.hpp>
-#include "ISpyder3Listener.hpp"
+#include "Spyder3ImageWriter.hpp"
 
 using namespace std;
 
-class Spyder3JPEGWriter : public ISpyder3Listener{
+class Spyder3JPEGWriter : public Spyder3ImageWriter{
     private:
-        string outputFolderPath;
+        struct jpeg_compress_struct cinfo;
+        struct jpeg_error_mgr jerr;
 
-        boost::mutex idMutex;
-        unsigned long folderID;
-        unsigned long frameID;
-
-        bool setNextFolderPath();
-    
     public:
+        typedef Spyder3ImageWriter super;
+
         Spyder3JPEGWriter(string outputFolder);
         ~Spyder3JPEGWriter();
-        std::pair<unsigned long, unsigned long> getFolderFrameIDs();
+
         virtual void processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
-        void changeFolder(string folderPath);
 };
 
 #endif
