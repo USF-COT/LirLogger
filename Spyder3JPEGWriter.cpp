@@ -3,11 +3,6 @@
 
 #include <stdio.h>
 
-extern "C"{
-#include "jpeglib.h"
-#include <setjmp.h>
-}
-
 #include <string>
 #include <stdlib.h>
 #include <sys/stat.h>
@@ -16,24 +11,22 @@ extern "C"{
 #include <limits.h>
 
 Spyder3JPEGWriter::Spyder3JPEGWriter(string outputFolderPath):super(outputFolderPath, 1000){
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_compress(&cinfo);
+
+    cinfo.input_components = 1;
+    cinfo.in_color_space = JCS_GRAYSCALE;
 }
 
 Spyder3JPEGWriter::~Spyder3JPEGWriter(){
+    jpeg_destroy_compress(&cinfo);
 }
 
 void Spyder3JPEGWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
     super::processFrame(lWidth, lHeight, lBuffer);
 
-    struct jpeg_compress_struct cinfo;
-
-    struct jpeg_error_mgr jerr;
-
     FILE * outfile;
     JSAMPROW row_pointer[1];
-
-    cinfo.err = jpeg_std_error(&jerr);
-
-    jpeg_create_compress(&cinfo);
 
     string path = this->getNextImagePath("jpg");
 
@@ -46,8 +39,6 @@ void Spyder3JPEGWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
 
     cinfo.image_width = lWidth;
     cinfo.image_height = lHeight;
-    cinfo.input_components = 1;
-    cinfo.in_color_space = JCS_GRAYSCALE;
 
     jpeg_set_defaults(&cinfo);
 
@@ -64,5 +55,4 @@ void Spyder3JPEGWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const Pv
 
     jpeg_finish_compress(&cinfo);
     fclose(outfile);
-    jpeg_destroy_compress(&cinfo);    
 }

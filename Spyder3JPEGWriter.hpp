@@ -5,6 +5,12 @@
 #include <string>
 #include "Spyder3ImageWriter.hpp"
 
+#include <setjmp.h>
+
+extern "C"{
+#include "jpeglib.h"
+}
+
 using namespace std;
 
 class Spyder3JPEGWriter : public Spyder3ImageWriter{
@@ -18,7 +24,7 @@ class Spyder3JPEGWriter : public Spyder3ImageWriter{
         Spyder3JPEGWriter(string outputFolder);
         ~Spyder3JPEGWriter();
 
-        virtual void processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
+        virtual void processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
 };
 
 #endif

@@ -16,8 +16,8 @@ Spyder3PNGWriter::Spyder3PNGWriter(string outputFolder) : super(outputFolder, 10
 Spyder3PNGWriter::~Spyder3PNGWriter(){
 }
 
-void Spyder3PNGWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
-    super::processFrame(lWidth, lHeight, lBuffer);
+void Spyder3PNGWriter::processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
+    super::processFrame(cameraID, lWidth, lHeight, lBuffer);
 
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
     if(!png_ptr){

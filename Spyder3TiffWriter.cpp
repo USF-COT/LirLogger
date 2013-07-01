@@ -18,8 +18,8 @@ Spyder3TiffWriter::Spyder3TiffWriter(string outputFolderPath):super(outputFolder
 Spyder3TiffWriter::~Spyder3TiffWriter(){
 }
 
-void Spyder3TiffWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
-    super::processFrame(lWidth, lHeight, lBuffer);
+void Spyder3TiffWriter::processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
+    super::processFrame(cameraID, lWidth, lHeight, lBuffer);
 
     TIFF *out = TIFFOpen(this->getNextImagePath("tif").c_str(),"w");
     TIFFSetField(out, TIFFTAG_IMAGEWIDTH, lWidth);

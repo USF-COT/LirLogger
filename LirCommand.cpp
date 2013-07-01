@@ -8,6 +8,7 @@
 #include "ConfigREST.hpp"
 #include "ZMQCameraStatsPublisher.hpp"
 #include "ZMQEthSensorPublisher.hpp"
+#include "ZMQImageWriterStatsPusher.hpp"
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -295,9 +296,16 @@ string LirCommand::setupUDR(const Json::Value& response){
                 unsigned int cameraID = camera_config["id"].asUInt();
                 unsigned int num_buffers = config["camera_num_buffers"].asUInt();
                 this->camera = new Spyder3Camera(cameraID, camera_config["MAC"].asString().c_str(), num_buffers);
+
+                // Setup Camera Image Writer
                 string fullPath = this->generateFolderName();
-                this->writer = new Spyder3JPEGWriter(fullPath);
+                if(this->writer != NULL)
+                    delete this->writer;
+                this->writer = new Spyder3TurboJPEGWriter(fullPath);
+                this->writer->addStatsListener(new ZMQImageWriterStatsPusher());
                 this->camera->addListener(this->writer);
+
+                // Setup Camera Memory Listeners
                 this->camStats = new MemoryCameraStatsListener();
                 this->camera->addStatsListener(this->camStats);
                 if(this->camStatsPublisher)
