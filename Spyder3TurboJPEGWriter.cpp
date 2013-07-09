@@ -38,7 +38,7 @@ void Spyder3TurboJPEGWriter::processFrame(unsigned long cameraID, PvUInt32 lWidt
         if((outfile = fopen(path.c_str(), "wb")) != NULL){
             fwrite(jpegBuffer, 1, jpegBufferSize, outfile);
             fclose(outfile);
-            this->updateStatsListeners(jpegBufferSize);
+            //this->updateStatsListeners(jpegBufferSize);
         } else {
             syslog(LOG_DAEMON|LOG_ERR, "Can't open file @ %s", path.c_str());
         }

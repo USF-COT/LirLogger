@@ -13,3 +13,6 @@
 *.a
 
 *.swp
+
+# Ignore Executable
+LirLogger
