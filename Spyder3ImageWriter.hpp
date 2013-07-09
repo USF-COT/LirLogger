@@ -23,16 +23,23 @@ class Spyder3ImageWriter : public ISpyder3Listener{
         unsigned long numImagesPerFolder;
         bool setNextFolderPath();
 
+        boost::mutex listenerMutex;
+        vector<ISpyder3ImageWriterListener*> statsListeners;
+
     protected:
         string getNextImagePath(const string extension);
+        void updateStatsListeners(unsigned long cameraID, unsigned long bytesWritten);
 
     public:
         Spyder3ImageWriter(string outputFolder, unsigned long numImagesPerFolder);
         ~Spyder3ImageWriter();
         unsigned long getFolderID();
         unsigned long getFrameID();
-        virtual void processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
+        virtual void processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
         void changeFolder(string folderPath);
+
+        void addStatsListener(ISpyder3ImageWriterListener* l);
+        void clearStatsListeners();
 };
 
 #endif

@@ -295,6 +295,8 @@ string LirCommand::setupUDR(const Json::Value& response){
 
                 unsigned int cameraID = camera_config["id"].asUInt();
                 unsigned int num_buffers = config["camera_num_buffers"].asUInt();
+                if(this->camera != NULL)
+                    delete this->camera;
                 this->camera = new Spyder3Camera(cameraID, camera_config["MAC"].asString().c_str(), num_buffers);
 
                 // Setup Camera Image Writer
@@ -302,6 +304,7 @@ string LirCommand::setupUDR(const Json::Value& response){
                 if(this->writer != NULL)
                     delete this->writer;
                 this->writer = new Spyder3TurboJPEGWriter(fullPath);
+                this->writer->addStatsListener(new ZMQImageWriterStatsPusher());
                 this->camera->addListener(this->writer);
 
                 // Setup Camera Memory Listeners

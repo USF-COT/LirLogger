@@ -227,7 +227,7 @@ void Spyder3Camera::operator() (){
                 listenersMutex.lock();
                 // Pass buffer to each listener in the vector
                 for(unsigned int i=0; i < listeners.size(); ++i){
-                    listeners[i]->processFrame(lWidth, lHeight, lBuffer);
+                    listeners[i]->processFrame(this->cameraID, lWidth, lHeight, lBuffer);
                 }
                 listenersMutex.unlock();
             }
