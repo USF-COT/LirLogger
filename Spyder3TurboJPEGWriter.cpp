@@ -21,8 +21,8 @@ Spyder3TurboJPEGWriter::~Spyder3TurboJPEGWriter(){
     tjFree(jpegBuffer);
 }
 
-void Spyder3TurboJPEGWriter::processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
-    super::processFrame(cameraID, lWidth, lHeight, lBuffer);
+void Spyder3TurboJPEGWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
+    super::processFrame(lWidth, lHeight, lBuffer);
 
     FILE * outfile;
 
@@ -38,7 +38,6 @@ void Spyder3TurboJPEGWriter::processFrame(unsigned long cameraID, PvUInt32 lWidt
         if((outfile = fopen(path.c_str(), "wb")) != NULL){
             fwrite(jpegBuffer, 1, jpegBufferSize, outfile);
             fclose(outfile);
-            //this->updateStatsListeners(jpegBufferSize);
         } else {
             syslog(LOG_DAEMON|LOG_ERR, "Can't open file @ %s", path.c_str());
         }

@@ -23,8 +23,6 @@
 #include "Spyder3Camera.hpp"
 #include "Spyder3ImageWriter.hpp"
 #include "Spyder3TurboJPEGWriter.hpp"
-#include "MemoryCameraStatsListener.hpp"
-#include "MemoryEthSensorListener.hpp"
 #include "ZMQCameraStatsPublisher.hpp"
 #include "ZMQEthSensorPublisher.hpp"
 
@@ -57,7 +55,6 @@ class LirCommand{
     // Camera and Logger Classes
     Spyder3Camera* camera;
     Spyder3ImageWriter* writer;
-    MemoryCameraStatsListener* camStats;
     ZMQCameraStatsPublisher* camStatsPublisher;
     
 //    Spyder3FrameTracker* tracker;
@@ -65,7 +62,6 @@ class LirCommand{
     // Sensor Classes
     map <unsigned int, EthSensor *> sensors;
     map <unsigned int, LirSQLiteWriter *> sensorWriters;
-    map <unsigned int, MemoryEthSensorListener *> sensorMems;
     map <unsigned int, ZMQEthSensorPublisher *> sensorPublishers;
 
     // Parser Functions

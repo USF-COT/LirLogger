@@ -302,13 +302,10 @@ string LirCommand::setupUDR(const Json::Value& response){
                 if(this->writer != NULL)
                     delete this->writer;
                 this->writer = new Spyder3TurboJPEGWriter(fullPath);
-                this->writer->addStatsListener(new ZMQImageWriterStatsPusher());
                 this->camera->addListener(this->writer);
 
                 // Setup Camera Memory Listeners
-                this->camStats = new MemoryCameraStatsListener();
-                this->camera->addStatsListener(this->camStats);
-                if(this->camStatsPublisher)
+                if(this->camStatsPublisher != NULL)
                     delete this->camStatsPublisher;
                 this->camStatsPublisher = new ZMQCameraStatsPublisher();
                 this->camera->addStatsListener(this->camStatsPublisher);
@@ -341,16 +338,6 @@ void LirCommand::setListenersOutputFolder(){
     for (wt=this->sensorWriters.begin(); wt != this->sensorWriters.end(); ++wt){
         wt->second->changeFolder(fullPath);
     }
-}
-
-Spyder3Stats LirCommand::getCameraStats(){
-    Spyder3Stats retVal;
-
-    commandMutex.lock();
-    retVal = this->camStats->getCurrentStats();
-    commandMutex.unlock();
-
-    return retVal;
 }
 
 void LirCommand::findLastDeploymentStation(){

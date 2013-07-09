@@ -24,7 +24,7 @@ class Spyder3TurboJPEGWriter : public Spyder3ImageWriter{
         Spyder3TurboJPEGWriter(string outputFolder);
         ~Spyder3TurboJPEGWriter();
 
-        virtual void processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
+        virtual void processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer);
 };
 
 #endif

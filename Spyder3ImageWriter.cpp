@@ -36,7 +36,6 @@ bool Spyder3ImageWriter::setNextFolderPath(){
 }
 
 Spyder3ImageWriter::Spyder3ImageWriter(string _outputFolder, unsigned long _numImagesPerFolder) : outputFolderPath(_outputFolder), numImagesPerFolder(_numImagesPerFolder){
-    cameraID = 0;
     folderID = 0;
     frameID = 0;
 
@@ -76,50 +75,18 @@ string Spyder3ImageWriter::getNextImagePath(const string extension){
     stringstream path;
     idMutex.lock();
     path << outputFolderPath << "/" << folderID << "/" << folderID << "-" << ++frameID << "." << extension;
+    idMutex.unlock();
+
     this->nextImagePath = path.str();
-    idMutex.unlock();
 
-    return path.str();
+    return this->nextImagePath;
 }
 
-void Spyder3ImageWriter::updateStatsListeners(unsigned long bytesWritten){
-    Spyder3ImageWriterStats stats;
-    stats.time = time(NULL);
-    stats.cameraID = this->cameraID;
-    idMutex.lock();
-    stats.folderID = folderID;
-    stats.frameID = frameID;
-    idMutex.unlock();
-    stats.numBytes = bytesWritten;
-
-    vector<ISpyder3ImageWriterListener*>::iterator it;
-    listenerMutex.lock();
-    for(it=statsListeners.begin(); it != statsListeners.end(); ++it){
-        (*it)->processStats(stats);
-    }
-    listenerMutex.unlock();
-}
-
-void Spyder3ImageWriter::processFrame(unsigned long cameraID, PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
-    if(this->cameraID != cameraID)
-        this->cameraID = cameraID;
-
+void Spyder3ImageWriter::processFrame(PvUInt32 lWidth, PvUInt32 lHeight, const PvBuffer *lBuffer){
     if(frameID >= this->numImagesPerFolder){
         if(!setNextFolderPath()){
             syslog(LOG_DAEMON|LOG_ERR, "SEVERE: Cannot log any more frames, maximum number of folders and frames reached.");
             return;
         }
     }
-}
-
-void Spyder3ImageWriter::addStatsListener(ISpyder3ImageWriterListener* l){
-    listenerMutex.lock();
-    statsListeners.push_back(l);
-    listenerMutex.unlock();
-}
-
-void Spyder3ImageWriter::clearStatsListeners(){
-    listenerMutex.lock();
-    statsListeners.clear();
-    listenerMutex.unlock();
 }
