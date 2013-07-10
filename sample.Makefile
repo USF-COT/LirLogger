@@ -61,6 +61,7 @@ OBJS      += $(SRC_CPPS:%.cpp=%.o)
 OBJS      += $(SRC_CS:%.c=%.o)
 
 all: $(EXEC)
+	sudo cp LirLogger /usr/local/bin
 
 clean:
 	rm -rf $(OBJS) $(EXEC) $(SRC_MOC) $(SRC_QRC)
