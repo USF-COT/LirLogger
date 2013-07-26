@@ -6,13 +6,15 @@ SRC_CPPS = \
 		   Spyder3ImageWriter.cpp \
 		   Spyder3TurboJPEGWriter.cpp \
            EthSensor.cpp \
+		   FlowMeter.cpp \
            LirSQLiteWriter.cpp \
            MemoryCameraStatsListener.cpp \
            MemoryEthSensorListener.cpp \
 		   ZMQSendUtils.cpp \
            ZMQEthSensorPublisher.cpp \
            ZMQCameraStatsPublisher.cpp \
-		   ZMQImageWriterStatsPusher.cpp
+		   ZMQImageWriterStatsPusher.cpp \
+		   ZMQFlowMeterPusher.cpp
 
 #SRC_CPPS = \
 #           LirTest.cpp

@@ -20,11 +20,13 @@
 #include <boost/thread.hpp>
 
 #include "EthSensor.hpp"
+#include "FlowMeter.hpp"
 #include "Spyder3Camera.hpp"
 #include "Spyder3ImageWriter.hpp"
 #include "Spyder3TurboJPEGWriter.hpp"
 #include "ZMQCameraStatsPublisher.hpp"
 #include "ZMQEthSensorPublisher.hpp"
+#include "ZMQFlowMeterPusher.hpp"
 
 #include "LirSQLiteWriter.hpp"
 
@@ -56,7 +58,8 @@ class LirCommand{
     Spyder3Camera* camera;
     Spyder3ImageWriter* writer;
     ZMQCameraStatsPublisher* camStatsPublisher;
-    
+    FlowMeter* flowMeter;
+
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes

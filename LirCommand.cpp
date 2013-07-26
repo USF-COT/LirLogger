@@ -57,7 +57,7 @@ string unescape(const string& s)
 
 LirCommand* LirCommand::m_pInstance = NULL;
 
-LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL){
+LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL), writer(NULL), camStatsPublisher(NULL), flowMeter(NULL), flowMeterPusher(NULL){
     this->findLastDeploymentStation();
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
@@ -317,6 +317,16 @@ string LirCommand::setupUDR(const Json::Value& response){
                 const Json::Value sensors = config["sensors"];
                 for(int j=0; j < sensors.size(); j++){
                     this->addSensor(loggers[i], sensors[j]);
+                }
+
+                // Setup Flow Sensor If Connected
+                if(config["is_flow_meter_connected"].asBool()){
+                    if(this->flowMeter != NULL)
+                        this->flowMeter->clearListeners();
+                        delete this->flowMeter;
+                    this->flowMeter = new FlowMeter();
+                    this->flowMeter->addListener(new ZMQFlowMeterPusher());
+                    this->flowMeter->Connect();
                 }
 
                 // Store JSON Response in Deployment Folder for Next Startup
