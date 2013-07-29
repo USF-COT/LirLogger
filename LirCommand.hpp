@@ -86,6 +86,7 @@ class LirCommand{
         void findLastDeploymentStation();
         string generateFolderName();
         void addSensor(const Json::Value& logger, const Json::Value& sensorConfig);
+        void setupFlowMeter();
         string setupUDR(const Json::Value& config);
         void setListenersOutputFolder();
 
@@ -96,7 +97,7 @@ class LirCommand{
         bool stopLogger();
         string parseCommand(const string message);
         Spyder3Stats getCameraStats();
-        vector<EthSensorReadingSet> getSensorSets();
+        vector<SensorReadingSet> getSensorSets();
 };
 
 #endif

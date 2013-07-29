@@ -269,6 +269,34 @@ void LirCommand::addSensor(const Json::Value& logger, const Json::Value& sensorC
     this->sensorWriters[sensor->getID()] = sensorWriter;
 }
 
+void LirCommand::setupFlowMeter(){
+    vector<FieldDescriptor> fields;
+    FieldDescriptor counts;
+    counts.id = 0;
+    counts.name = "counts";
+    counts.units = "counts";
+    counts.isNum = true;
+    fields.push_back(counts);
+    FieldDescriptor flowRate;
+    flowRate.id = 1;
+    flowRate.name = "flow";
+    flowRate.units = "m/s";
+    flowRate.isNum = true;
+    fields.push_back(flowRate);
+
+    SerialSensor* flowMeter = new SerialSensor(0, "/dev/ttyUSB0", 9600, "Flow Sensor", "\r\n", ",", fields, "", "");
+    flowMeter->Connect();
+    this->sensors[0] = flowMeter; // Reserved 0 for flow meter
+
+    ZMQSensorPublisher* zmqPublisher = new ZMQSensorPublisher();
+    flowMeter->addListener(zmqPublisher);
+    this->sensorPublishers[0] = zmqPublisher;
+
+    string fullPath = this->generateFolderName();
+    LirSQLiteWriter* sensorWriter = new LirSQLiteWriter(this->writer, flowMeter, fullPath);
+    this->sensorWriters[0] = sensorWriter;
+}
+
 string LirCommand::setupUDR(const Json::Value& response){
     const Json::Value loggers = response["system"]["loggers"];
 
@@ -323,6 +351,7 @@ string LirCommand::setupUDR(const Json::Value& response){
 
                 // Setup Flow Sensor If Connected
                 if(config["is_flow_meter_connected"].asBool()){
+                    setupFlowMeter();
                 }
 
                 // Store JSON Response in Deployment Folder for Next Startup

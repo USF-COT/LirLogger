@@ -1,7 +1,7 @@
 
 #include <syslog.h>
 #include <vector>
-#include <iostream>
+#include <sstream>
 #include "ZMQSensorPublisher.hpp"
 #include "ZMQSendUtils.hpp"
 

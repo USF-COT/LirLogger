@@ -57,7 +57,7 @@ void LirSQLiteWriter::initDatabase(string outputFolder){
     pathMutex.unlock();
 }
 
-LirSQLiteWriter::LirSQLiteWriter(Spyder3ImageWriter* _camWriter, EthSensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
+LirSQLiteWriter::LirSQLiteWriter(Spyder3ImageWriter* _camWriter, ISensor* _sensor, string outputDirectory) : camWriter(_camWriter), sensor(_sensor), db(NULL), logging(false){
     initDatabase(outputDirectory);
     sensor->addListener(this);
     this->lastRowTimeLogged = time(NULL);
@@ -84,7 +84,7 @@ void LirSQLiteWriter::changeFolder(string outputFolder){
     initDatabase(outputFolder);
 }
 
-void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
+void LirSQLiteWriter::processReading(const SensorReadingSet& set){
     if(!this->logging || set.time == this->lastRowTimeLogged)
         return; // Do nothing if not logging or if this is too high of a resolution
 
@@ -109,7 +109,7 @@ void LirSQLiteWriter::processReading(const EthSensorReadingSet& set){
                 if (boost::iequals(fields[i].name, "ignore"))
                     continue;
 
-                EthSensorReading reading = set.readings[i];
+                SensorReading reading = set.readings[i];
                 if(fields[i].isNum){ // INSERT double value if number field
                     double val = -1;
                     if(reading.isNum){
