@@ -11,19 +11,10 @@
 void LirSQLiteWriter::initDatabase(string outputFolder){
     char* errMsg;
     pathMutex.lock();    
-    if(db)
-        sqlite3_close(db);
+    if(db) sqlite3_close(db);
 
     dbPath = outputFolder + "/data.db";
     syslog(LOG_DAEMON|LOG_INFO,"SQLite output path: %s",dbPath.c_str());
-
-    // Create a table for the flow sensor
-    string flowMeterCreate = "CREATE TABLE IF NOT EXISTS main.flow (unix_timestamp INTEGER PRIMARY KEY NOT NULL, folder_id INTEGER NOT NULL, frame_id INTEGER NOT NULL, counts INTEGER NOT NULL, flow_rate-ms REAL NOT NULL)";
-    if(sqlite3_exec(db, flowMeterCreate.c_str(), NULL, NULL, &errMsg) == SQLITE_OK){
-        syslog(LOG_DAEMON|LOG_INFO, "Flow meter table created successfully");
-    } else {
-        syslog(LOG_DAEMON|LOG_ERR, "Flow meter table NOT created.  Query: %s; Message: %s", flowMeterCreate.c_str(), errMsg);
-    }
 
     // Create a table based on this sensor's field descriptors
     sqlite3_open(dbPath.c_str(), &db);
@@ -158,40 +149,4 @@ void LirSQLiteWriter::stopLogging(){
 }
 
 void LirSQLiteWriter::sensorStopping(){
-}
-
-void LirSQLiteWriter::flowMeterStarting(){
-
-}
-
-void LirSQLiteWriter::flowMeterStopping(){
-
-}
-
-const string flowInsertStmt = "INSERT INTO main.flow (unix_timestamp, folder_id, frame_id, counts, flow_rate) VALUES (?, ?, ?, ?, ?)";
-void LirSQLiteWriter::processFlowReading(time_t timestamp, int counts, double flowRate){
-    pathMutex.lock();
-    if(db == NULL)
-        sqlite3_open(dbPath.c_str(), &db);
-
-    unsigned long folderID = this->camWriter->getFolderID();
-    unsigned long frameID = this->camWriter->getFrameID();
-    sqlite3_stmt* pStmt = NULL;
-    if(sqlite3_prepare(db, flowInsertStmt.c_str(), 1024, &pStmt, NULL) == SQLITE_OK){
-        // Place time in the beginning
-        sqlite3_bind_int64(pStmt,1,(int64_t)timestamp);
-        // Place frame information
-        sqlite3_bind_int64(pStmt,2,(int64_t)folderID);
-        sqlite3_bind_int64(pStmt,3,(int64_t)frameID);
-
-        sqlite3_bind_int(pStmt, 4, counts);
-        sqlite3_bind_double(pStmt, 5, flowRate);
-        if(sqlite3_step(pStmt) == SQLITE_ERROR){
-            syslog(LOG_DAEMON|LOG_ERR,"Unable to insert reading for flow sensor.  Error: %s.", sqlite3_errmsg(db));
-        }
-        sqlite3_finalize(pStmt);
-    } else {
-        syslog(LOG_DAEMON|LOG_ERR, "Unable to create prepared statement to INSERT readings for flow.  Error: %s",sqlite3_errmsg(db));
-    }
-    pathMutex.unlock();
 }

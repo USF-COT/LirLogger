@@ -4,7 +4,6 @@
 
 #include "EthSensor.hpp"
 #include "IEthSensorListener.hpp"
-#include "IFlowMeterListener.hpp"
 #include "sqlite3.h"
 #include <time.h>
 
@@ -12,7 +11,7 @@
 
 #include <boost/thread.hpp>
 
-class LirSQLiteWriter : public IEthSensorListener, public IFlowMeterListener{
+class LirSQLiteWriter : public IEthSensorListener{
     private:
         boost::mutex pathMutex;
         sqlite3 *db;
@@ -37,11 +36,6 @@ class LirSQLiteWriter : public IEthSensorListener, public IFlowMeterListener{
         void stopLogging();
         virtual void sensorStopping();
         void changeFolder(string outputFolder);
-
-        // Flow Meter Methods
-        virtual void flowMeterStarting();
-        virtual void flowMeterStopping();
-        virtual void processFlowReading(time_t timestamp, int counts, double flowRate);
 };
 
 #endif
