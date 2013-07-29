@@ -8,18 +8,12 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 
-#include "IEthSensorListener.hpp"
+#include "ISensor.hpp"
+#include "ISensorListener.hpp"
 
 using namespace std;
 
-typedef struct{
-    unsigned int id;
-    bool isNum;
-    string name;
-    string units;
-}FieldDescriptor;
-
-class EthSensor{    
+class EthSensor : public ISensor{
 
 private:
     unsigned int sensorID;
@@ -31,7 +25,7 @@ private:
     vector<FieldDescriptor> fields;
     string startChars;
     string endChars;
-    vector<IEthSensorListener *> listeners;
+    vector<ISensorListener *> listeners;
 
     boost::mutex runMutex;
     boost::mutex listenersMutex;
@@ -50,15 +44,15 @@ private:
 public:
     EthSensor(const unsigned int _sensorID, const string IP, const unsigned int port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars);
     ~EthSensor();
-    bool Connect();
-    bool Disconnect();
-    void addListener(IEthSensorListener *l);
-    void clearListeners();
-    bool isRunning();
+    virtual bool Connect();
+    virtual bool Disconnect();
+    virtual void addListener(ISensorListener *l);
+    virtual void clearListeners();
+    virtual bool isRunning();
     void operator() ();
-    unsigned int getID();
-    string getName();
-    vector<FieldDescriptor> getFieldDescriptors();
+    virtual unsigned int getID();
+    virtual string getName();
+    virtual vector<FieldDescriptor> getFieldDescriptors();
 };
 
 #endif

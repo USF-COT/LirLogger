@@ -1,5 +1,5 @@
 
-#include "EthSensor.hpp"
+#include "SerialSensor.hpp"
 #include <syslog.h>
 #include <iostream>
 #include <boost/array.hpp>
@@ -12,22 +12,22 @@
 
 using namespace std;
 
-EthSensor::EthSensor(const unsigned int _sensorID, const string _IP, const unsigned int _port, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), IP(_IP), port(_port), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
+SerialSensor::SerialSensor(const unsigned int _sensorID, const string _port, const int _baud, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), port_string(_port), baud(_baud), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars), ios(), serial(ios){
     running = false;
 
 }
 
-EthSensor::~EthSensor(){
+SerialSensor::~SerialSensor(){
     this->Disconnect(); // Run this in case the sensor is left connected
 }
 
-void EthSensor::setRunning(bool value){
+void SerialSensor::setRunning(bool value){
     runMutex.lock();
     this->running = value;
     runMutex.unlock();
 }
 
-bool EthSensor::isRunning(){
+bool SerialSensor::isRunning(){
     bool retVal;
     runMutex.lock();
     retVal = running;
@@ -36,33 +36,29 @@ bool EthSensor::isRunning(){
     return retVal;
 }
 
-bool EthSensor::Connect(){
+bool SerialSensor::Connect(){
     if(!this->isRunning()){
-        syslog(LOG_DAEMON|LOG_INFO,"Connecting %s sensor @ %s:%d",name.c_str(),IP.c_str(),port);
-        char portString[16];
-        snprintf(portString,15,"%u",port);
+        syslog(LOG_DAEMON|LOG_INFO,"Connecting %s sensor @ %s",name.c_str(),port_string.c_str());
 
         try{
-            boost::asio::ip::tcp::resolver resolver(ios);
-            boost::asio::ip::tcp::resolver::query query(IP.c_str(),portString);
-
-            readSock = new boost::asio::ip::tcp::socket(ios);
-            boost::asio::connect(*readSock,resolver.resolve(query));
-            if(startChars.length() > 0) readSock->write_some(boost::asio::buffer(startChars));
-            boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+            serial.open(port_string.c_str());
+            serial.set_option(boost::asio::serial_port_base::baud_rate(9600));
+            serial.set_option(boost::asio::serial_port_base::character_size(8));
+            if(startChars.length() > 0) serial.write_some(boost::asio::buffer(startChars));
+            boost::asio::async_read_until(serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             readThread = new boost::thread(boost::ref(*this));
             this->setRunning(true);
             syslog(LOG_DAEMON|LOG_INFO,"%s Sensor Connected", name.c_str());
         } catch (std::exception& e){
-            syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
+            syslog(LOG_DAEMON|LOG_ERR,"Unable to connect to ethernet sensor %s @ %s.  Error: %s",name.c_str(),port_string.c_str(),e.what());
         }
     } else {
         syslog(LOG_DAEMON|LOG_INFO,"Sensor %s already running",name.c_str());
     }
 }
 
-void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
-    EthSensorReadingSet set;
+void SerialSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
+    SensorReadingSet set;
     set.time = time(NULL);
     set.sensorID = this->sensorID;
     set.sensorName = this->name;
@@ -80,7 +76,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             boost::char_separator<char> sep(delimeter.c_str(), "", boost::drop_empty_tokens);
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
-                EthSensorReading r;
+                SensorReading r;
                 //syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
                 boost::algorithm::trim(t);
                 r.fieldID = fields[i].id;
@@ -107,7 +103,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             listenersMutex.unlock();
 
             // Schedule next request
-            boost::asio::async_read_until(*readSock,buf,lineEnd,boost::bind(&EthSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
+            boost::asio::async_read_until(serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
         } else {
             ios.stop();
         }
@@ -117,40 +113,39 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
     }
 }
 
-bool EthSensor::Disconnect(){
+bool SerialSensor::Disconnect(){
     if(this->isRunning()){
         this->setRunning(false);
 
         try{
-            if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));
-            readSock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
-            readSock->close();
+            if(endChars.length() > 0) serial.write_some(boost::asio::buffer(endChars));
+            serial.close();
         } catch (std::exception& e){
-            syslog(LOG_DAEMON|LOG_ERR,"Unable to disconnect ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
+            syslog(LOG_DAEMON|LOG_ERR,"Unable to disconnect ethernet sensor %s @ %s.  Error: %s",name.c_str(),port_string.c_str());
         }
         if(readThread) readThread->join();
         syslog(LOG_DAEMON|LOG_INFO,"Sensor %s disconnected",name.c_str());            
     }
 }
 
-void EthSensor::addListener(IEthSensorListener *l){
+void SerialSensor::addListener(ISensorListener *l){
     listenersMutex.lock();
     listeners.push_back(l);
     listenersMutex.unlock();
 }
 
-void EthSensor::clearListeners(){
+void SerialSensor::clearListeners(){
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStopping();
     }
     listeners.clear();
     listenersMutex.unlock();
 }
 
-void EthSensor::operator() (){
+void SerialSensor::operator() (){
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStarting();
     }
     listenersMutex.unlock();
@@ -159,22 +154,22 @@ void EthSensor::operator() (){
     ios.run();
     
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStopping();
     }
     listenersMutex.unlock(); 
 }
 
-unsigned int EthSensor::getID(){
+unsigned int SerialSensor::getID(){
     return this->sensorID;
 }
 
-string EthSensor::getName(){
+string SerialSensor::getName(){
     string retVal(this->name);
     return retVal;
 }
 
-vector<FieldDescriptor> EthSensor::getFieldDescriptors(){
+vector<FieldDescriptor> SerialSensor::getFieldDescriptors(){
     vector<FieldDescriptor> retVal(this->fields);
     return retVal;
 }

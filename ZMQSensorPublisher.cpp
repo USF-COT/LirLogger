@@ -2,10 +2,10 @@
 #include <syslog.h>
 #include <vector>
 #include <iostream>
-#include "ZMQEthSensorPublisher.hpp"
+#include "ZMQSensorPublisher.hpp"
 #include "ZMQSendUtils.hpp"
 
-ZMQEthSensorPublisher::ZMQEthSensorPublisher():context(1), socket(context, ZMQ_PUSH){
+ZMQSensorPublisher::ZMQSensorPublisher():context(1), socket(context, ZMQ_PUSH){
     stringstream socketAddressStream;
     socketAddressStream << "tcp://localhost:" << PUSH_PORT;
     syslog(LOG_DAEMON|LOG_INFO, "Socket address %s",socketAddressStream.str().c_str());
@@ -15,19 +15,19 @@ ZMQEthSensorPublisher::ZMQEthSensorPublisher():context(1), socket(context, ZMQ_P
     socket.setsockopt(ZMQ_SNDHWM, &highWaterMark, sizeof(highWaterMark));
 }
 
-ZMQEthSensorPublisher::~ZMQEthSensorPublisher(){
+ZMQSensorPublisher::~ZMQSensorPublisher(){
 }
 
-void ZMQEthSensorPublisher::sensorStarting(){
+void ZMQSensorPublisher::sensorStarting(){
 }
 
-void ZMQEthSensorPublisher::processReading(const EthSensorReadingSet& set){
+void ZMQSensorPublisher::processReading(const SensorReadingSet& set){
     stringstream datastream;
 
     if(set.readings.size() > 0)
         datastream << set.readings[0].text;
 
-    vector<EthSensorReading>::const_iterator it;
+    vector<SensorReading>::const_iterator it;
     for(it = set.readings.begin()+1; it != set.readings.end(); ++it){
         datastream << "," << it->text;
     }
@@ -36,6 +36,6 @@ void ZMQEthSensorPublisher::processReading(const EthSensorReadingSet& set){
     sendLirMessage(socket, 'S', set.sensorID, set.time, dataString);
 }
 
-void ZMQEthSensorPublisher::sensorStopping(){
+void ZMQSensorPublisher::sensorStopping(){
 }
 

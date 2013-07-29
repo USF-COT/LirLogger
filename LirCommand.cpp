@@ -6,8 +6,10 @@
 
 #include "LirCommand.hpp"
 #include "ConfigREST.hpp"
+#include "EthSensor.hpp"
+#include "SerialSensor.hpp"
 #include "ZMQCameraStatsPublisher.hpp"
-#include "ZMQEthSensorPublisher.hpp"
+#include "ZMQSensorPublisher.hpp"
 #include "ZMQImageWriterStatsPusher.hpp"
 
 #include <dirent.h>
@@ -57,7 +59,7 @@ string unescape(const string& s)
 
 LirCommand* LirCommand::m_pInstance = NULL;
 
-LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL), writer(NULL), camStatsPublisher(NULL), flowMeter(NULL), flowMeterPusher(NULL){
+LirCommand::LirCommand() : deploymentSet(false), running(false), outputFolder(DEFAULTOUTPUTFOLDER), camera(NULL), writer(NULL), camStatsPublisher(NULL){
     this->findLastDeploymentStation();
     commands["start"] = &LirCommand::receiveStartCommand;
     commands["stop"] = &LirCommand::receiveStopCommand; 
@@ -104,10 +106,10 @@ string LirCommand::receiveStatusCommand(const string command){
     }
 
     // Compose sensor statuses
-    map<unsigned int, EthSensor*>::iterator it;
+    map<unsigned int, ISensor*>::iterator it;
     for (it=this->sensors.begin(); it != this->sensors.end(); ++it){
         unsigned int sensorID = it->first;
-        EthSensor* sensor = it->second;
+        ISensor* sensor = it->second;
         response << "Sensor[" << sensorID << "]:" << sensor->getName() << ":time(number),frame_id(number),folder_id(number)";
         vector<FieldDescriptor> fields = sensor->getFieldDescriptors();
         for(unsigned int j=0; j < fields.size(); ++j){
@@ -258,7 +260,7 @@ void LirCommand::addSensor(const Json::Value& logger, const Json::Value& sensorC
     sensor->Connect();
     this->sensors[sensorID] = sensor;
 
-    ZMQEthSensorPublisher* zmqPublisher = new ZMQEthSensorPublisher();
+    ZMQSensorPublisher* zmqPublisher = new ZMQSensorPublisher();
     sensor->addListener(zmqPublisher);
     this->sensorPublishers[sensorID] = zmqPublisher;
 
@@ -321,12 +323,6 @@ string LirCommand::setupUDR(const Json::Value& response){
 
                 // Setup Flow Sensor If Connected
                 if(config["is_flow_meter_connected"].asBool()){
-                    if(this->flowMeter != NULL)
-                        this->flowMeter->clearListeners();
-                        delete this->flowMeter;
-                    this->flowMeter = new FlowMeter();
-                    this->flowMeter->addListener(new ZMQFlowMeterPusher());
-                    this->flowMeter->Connect();
                 }
 
                 // Store JSON Response in Deployment Folder for Next Startup
@@ -344,7 +340,7 @@ string LirCommand::setupUDR(const Json::Value& response){
 void LirCommand::setListenersOutputFolder(){
     string fullPath = this->generateFolderName();
     syslog(LOG_DAEMON|LOG_INFO,"Output path changed to: %s", fullPath.c_str());
-    syslog(LOG_DAEMON|LOG_INFO,"Changing tiff writer path.");
+    syslog(LOG_DAEMON|LOG_INFO,"Changing image writer path.");
     if(this->writer) this->writer->changeFolder(fullPath);
     syslog(LOG_DAEMON|LOG_INFO,"Changing SQLite Writer paths.");
     map<unsigned int, LirSQLiteWriter*>::iterator wt;

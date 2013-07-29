@@ -62,7 +62,7 @@ bool EthSensor::Connect(){
 }
 
 void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_transferred){
-    EthSensorReadingSet set;
+    SensorReadingSet set;
     set.time = time(NULL);
     set.sensorID = this->sensorID;
     set.sensorName = this->name;
@@ -80,7 +80,7 @@ void EthSensor::parseLine(const boost::system::error_code& ec, size_t bytes_tran
             boost::char_separator<char> sep(delimeter.c_str(), "", boost::drop_empty_tokens);
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
-                EthSensorReading r;
+                SensorReading r;
                 //syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
                 boost::algorithm::trim(t);
                 r.fieldID = fields[i].id;
@@ -133,7 +133,7 @@ bool EthSensor::Disconnect(){
     }
 }
 
-void EthSensor::addListener(IEthSensorListener *l){
+void EthSensor::addListener(ISensorListener *l){
     listenersMutex.lock();
     listeners.push_back(l);
     listenersMutex.unlock();
@@ -141,7 +141,7 @@ void EthSensor::addListener(IEthSensorListener *l){
 
 void EthSensor::clearListeners(){
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStopping();
     }
     listeners.clear();
@@ -150,7 +150,7 @@ void EthSensor::clearListeners(){
 
 void EthSensor::operator() (){
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStarting();
     }
     listenersMutex.unlock();
@@ -159,7 +159,7 @@ void EthSensor::operator() (){
     ios.run();
     
     listenersMutex.lock();
-    BOOST_FOREACH(IEthSensorListener* l, listeners){
+    BOOST_FOREACH(ISensorListener* l, listeners){
         l->sensorStopping();
     }
     listenersMutex.unlock(); 

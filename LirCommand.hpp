@@ -19,14 +19,13 @@
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
 
-#include "EthSensor.hpp"
+#include "ISensor.hpp"
 #include "FlowMeter.hpp"
 #include "Spyder3Camera.hpp"
 #include "Spyder3ImageWriter.hpp"
 #include "Spyder3TurboJPEGWriter.hpp"
 #include "ZMQCameraStatsPublisher.hpp"
-#include "ZMQEthSensorPublisher.hpp"
-#include "ZMQFlowMeterPusher.hpp"
+#include "ZMQSensorPublisher.hpp"
 
 #include "LirSQLiteWriter.hpp"
 
@@ -58,14 +57,13 @@ class LirCommand{
     Spyder3Camera* camera;
     Spyder3ImageWriter* writer;
     ZMQCameraStatsPublisher* camStatsPublisher;
-    FlowMeter* flowMeter;
 
 //    Spyder3FrameTracker* tracker;
 
     // Sensor Classes
-    map <unsigned int, EthSensor *> sensors;
+    map <unsigned int, ISensor *> sensors;
     map <unsigned int, LirSQLiteWriter *> sensorWriters;
-    map <unsigned int, ZMQEthSensorPublisher *> sensorPublishers;
+    map <unsigned int, ZMQSensorPublisher *> sensorPublishers;
 
     // Parser Functions
     std::map<std::string, boost::function<string (LirCommand*,const string)> > commands;
