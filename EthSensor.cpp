@@ -125,6 +125,7 @@ bool EthSensor::Disconnect(){
             if(endChars.length() > 0) readSock->write_some(boost::asio::buffer(endChars));
             readSock->shutdown(boost::asio::ip::tcp::socket::shutdown_receive);
             readSock->close();
+            delete readSock;
         } catch (std::exception& e){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to disconnect ethernet sensor %s @ %s:%d.  Error: %s",name.c_str(),IP.c_str(),port,e.what());
         }

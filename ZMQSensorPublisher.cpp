@@ -22,18 +22,17 @@ void ZMQSensorPublisher::sensorStarting(){
 }
 
 void ZMQSensorPublisher::processReading(const SensorReadingSet& set){
-    stringstream datastream;
-
-    if(set.readings.size() > 0)
+    if(set.readings.size() > 0){
+        stringstream datastream;
         datastream << set.readings[0].text;
 
-    vector<SensorReading>::const_iterator it;
-    for(it = set.readings.begin()+1; it != set.readings.end(); ++it){
-        datastream << "," << it->text;
+        vector<SensorReading>::const_iterator it;
+        for(it = set.readings.begin()+1; it != set.readings.end(); ++it){
+            datastream << "," << it->text;
+        }
+        string dataString = datastream.str();
+        sendLirMessage(socket, 'S', set.sensorID, set.time, dataString);
     }
-
-    string dataString = datastream.str();
-    sendLirMessage(socket, 'S', set.sensorID, set.time, dataString);
 }
 
 void ZMQSensorPublisher::sensorStopping(){

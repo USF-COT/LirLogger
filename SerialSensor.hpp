@@ -33,7 +33,7 @@ private:
     // Socket Variables
     string port_string;
     int baud;
-    boost::asio::serial_port serial;
+    boost::asio::serial_port* serial;
     boost::asio::io_service ios;
     boost::asio::streambuf buf;
 

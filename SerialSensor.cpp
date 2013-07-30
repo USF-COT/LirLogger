@@ -12,9 +12,8 @@
 
 using namespace std;
 
-SerialSensor::SerialSensor(const unsigned int _sensorID, const string _port, const int _baud, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), port_string(_port), baud(_baud), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars), ios(), serial(ios){
+SerialSensor::SerialSensor(const unsigned int _sensorID, const string _port, const int _baud, const string _name, const string _lineEnd, const string _delimeter, const vector<FieldDescriptor> _fields, const string _startChars, const string _endChars) : sensorID(_sensorID), port_string(_port), baud(_baud), name(_name), lineEnd(_lineEnd), delimeter(_delimeter), fields(_fields), startChars(_startChars), endChars(_endChars){
     running = false;
-
 }
 
 SerialSensor::~SerialSensor(){
@@ -41,11 +40,12 @@ bool SerialSensor::Connect(){
         syslog(LOG_DAEMON|LOG_INFO,"Connecting %s sensor @ %s",name.c_str(),port_string.c_str());
 
         try{
-            serial.open(port_string.c_str());
-            serial.set_option(boost::asio::serial_port_base::baud_rate(9600));
-            serial.set_option(boost::asio::serial_port_base::character_size(8));
-            if(startChars.length() > 0) serial.write_some(boost::asio::buffer(startChars));
-            boost::asio::async_read_until(serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+            serial = new boost::asio::serial_port(ios);
+            serial->open(port_string.c_str());
+            serial->set_option(boost::asio::serial_port_base::baud_rate(9600));
+            serial->set_option(boost::asio::serial_port_base::character_size(8));
+            if(startChars.length() > 0) serial->write_some(boost::asio::buffer(startChars));
+            boost::asio::async_read_until(*serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
             readThread = new boost::thread(boost::ref(*this));
             this->setRunning(true);
             syslog(LOG_DAEMON|LOG_INFO,"%s Sensor Connected", name.c_str());
@@ -77,7 +77,7 @@ void SerialSensor::parseLine(const boost::system::error_code& ec, size_t bytes_t
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
                 SensorReading r;
-                //syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
+                syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
                 boost::algorithm::trim(t);
                 r.fieldID = fields[i].id;
                 r.field = fields[i].name;
@@ -103,7 +103,7 @@ void SerialSensor::parseLine(const boost::system::error_code& ec, size_t bytes_t
             listenersMutex.unlock();
 
             // Schedule next request
-            boost::asio::async_read_until(serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
+            boost::asio::async_read_until(*serial,buf,lineEnd,boost::bind(&SerialSensor::parseLine,this,boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred)); 
         } else {
             ios.stop();
         }
@@ -118,8 +118,9 @@ bool SerialSensor::Disconnect(){
         this->setRunning(false);
 
         try{
-            if(endChars.length() > 0) serial.write_some(boost::asio::buffer(endChars));
-            serial.close();
+            if(endChars.length() > 0) serial->write_some(boost::asio::buffer(endChars));
+            serial->close();
+            delete serial;
         } catch (std::exception& e){
             syslog(LOG_DAEMON|LOG_ERR,"Unable to disconnect ethernet sensor %s @ %s.  Error: %s",name.c_str(),port_string.c_str());
         }
