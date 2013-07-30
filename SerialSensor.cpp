@@ -77,7 +77,7 @@ void SerialSensor::parseLine(const boost::system::error_code& ec, size_t bytes_t
             boost::tokenizer< boost::char_separator<char> > tokens(line, sep);
             BOOST_FOREACH(string t, tokens){
                 SensorReading r;
-                syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
+                //syslog(LOG_DAEMON|LOG_INFO, "Reading @ column %d for field ID %d: %s", i, fields[i].id, t.c_str());
                 boost::algorithm::trim(t);
                 r.fieldID = fields[i].id;
                 r.field = fields[i].name;

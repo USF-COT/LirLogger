@@ -31,7 +31,7 @@ void Spyder3TurboJPEGWriter::processFrame(unsigned long cameraID, PvUInt32 lWidt
     int compressSuccess = tjCompress2(compressor,
                                       buffer, lWidth, lWidth, lHeight,
                                       TJPF_GRAY, &jpegBuffer, &jpegBufferSize,
-                                      TJSAMP_GRAY, 100, 0);
+                                      TJSAMP_GRAY, 75, 0);
 
     if(compressSuccess == 0){
         string path = this->getNextImagePath("jpg");
